@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 import google.genai as genai
 
-from .api import chat
+from .api import chat, interaction
 from .config import settings
 from .db import engine, test_db_connection
 from .schemas import HealthResponse
@@ -41,6 +41,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
 
 app.include_router(chat.router, prefix="/api/v1", tags=["Chat"])
+app.include_router(interaction.router, prefix="/api/v1", tags=["Interaction"])
 
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
