@@ -19,6 +19,6 @@ class InteractionRequest(BaseModel):
     sessionID: str
     messages: List[InteractionMessage]
 
-class InteractionResponseMessage(BaseModel):
-    type: Literal["user", "assistant"]
-    message: str
+class InteractionResponse(BaseModel):
+    sessionID: str
+    messages: List[InteractionMessage]

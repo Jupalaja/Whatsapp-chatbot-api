@@ -4,13 +4,13 @@ from fastapi import APIRouter, HTTPException, Request
 import google.genai as genai
 from google.genai import errors, types
 
-from ..schemas import InteractionRequest, InteractionResponseMessage
+from ..schemas import InteractionRequest, InteractionResponse, InteractionMessage
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-@router.post("/interaction", response_model=List[InteractionResponseMessage])
+@router.post("/interaction", response_model=InteractionResponse)
 async def handle_interaction(interaction_request: InteractionRequest, request: Request):
     """
     Handles a user-assistant interaction, continuing a conversation.
@@ -30,24 +30,24 @@ async def handle_interaction(interaction_request: InteractionRequest, request: R
         )
 
         response_messages = [
-            InteractionResponseMessage(
+            InteractionMessage(
                 type=msg.type,
                 message=msg.message,
-                sessionID=interaction_request.sessionID,
             )
             for msg in interaction_request.messages
         ]
 
         if response.text:
             response_messages.append(
-                InteractionResponseMessage(
+                InteractionMessage(
                     type="assistant",
                     message=response.text,
-                    sessionID=interaction_request.sessionID,
                 )
             )
 
-        return response_messages
+        return InteractionResponse(
+            sessionID=interaction_request.sessionID, messages=response_messages
+        )
     except errors.APIError as e:
         logger.error(f"Gemini API Error: {e}")
         raise HTTPException(status_code=500, detail=f"Gemini API Error: {e!s}")
