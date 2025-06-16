@@ -63,16 +63,21 @@ async def handle_interaction(
         assistant_message = None
         tool_call_name = None
 
-        # When AFC is used, inspect automatic_function_calling_history to find tool calls.
+        # When AFC is used, inspect automatic_function_calling_history to find the last tool call.
         if response.automatic_function_calling_history:
-            for content in reversed(response.automatic_function_calling_history):
-                if content.role == "model" and content.parts:
-                    for part in content.parts:
-                        if part.function_call:
-                            tool_call_name = part.function_call.name
-                            break
-                if tool_call_name:
-                    break
+            # Find the last function call from the model in the history.
+            function_calls = (
+                part.function_call
+                for content in reversed(response.automatic_function_calling_history)
+                if content.role == "model" and content.parts
+                for part in content.parts
+                if part.function_call
+            )
+            # The `next` function gets the first item from an iterator, or None if it's empty.
+            # Since we reversed the history, this is the last function call made.
+            last_function_call = next(function_calls, None)
+            if last_function_call:
+                tool_call_name = last_function_call.name
 
         if tool_call_name == "get_human_help":
             logger.info(
