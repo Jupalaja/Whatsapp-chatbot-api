@@ -7,7 +7,7 @@ from google.genai import errors, types
 from .. import models
 from ..db import get_db
 from ..model.constants import GEMINI_MODEL
-from ..model.prompts import CONTACTO_BASE_SYSTEM_PROMPT
+from ..model.prompts import CLIENTE_POTENCIAL_SYSTEM_PROMPT
 from ..model.tools import get_human_help
 from ..schemas import InteractionRequest, InteractionResponse, InteractionMessage
 
@@ -15,16 +15,16 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-@router.post("/interaction", response_model=InteractionResponse)
+@router.post("/cliente-potencial", response_model=InteractionResponse)
 async def handle(
     interaction_request: InteractionRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Handles a user-assistant interaction, continuing a conversation by
-    loading history from the database, appending the new message,
-    and saving the updated history.
+    Handles a user-assistant interaction, following a conversation
+    guideline for extracting user data and verify it using
+    tool calls
     """
     client: genai.Client = request.app.state.genai_client
 
@@ -54,7 +54,7 @@ async def handle(
         tools = [get_human_help]
         config = types.GenerateContentConfig(
             tools=tools,
-            system_instruction=CONTACTO_BASE_SYSTEM_PROMPT,
+            system_instruction=CLIENTE_POTENCIAL_SYSTEM_PROMPT,
             automatic_function_calling=types.AutomaticFunctionCallingConfig(
                 disable=True
             ),
@@ -114,19 +114,3 @@ async def handle(
             status_code=500,
             detail="An unexpected error occurred. Check server logs and environment variables.",
         )
-
-
-@router.get("/interaction", response_model=InteractionResponse)
-async def get_interaction_history(sessionID: str, db: AsyncSession = Depends(get_db)):
-    """
-    Retrieves the message history for a given sessionID.
-    """
-    interaction = await db.get(models.Interaction, sessionID)
-    if not interaction:
-        raise HTTPException(status_code=404, detail="Session not found")
-
-    history_messages = [
-        InteractionMessage.model_validate(msg) for msg in interaction.messages
-    ]
-
-    return InteractionResponse(sessionId=sessionID, messages=history_messages)

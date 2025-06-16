@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.post("/tipo-de-interaccion", response_model=TipoDeInteraccionResponse)
-async def handle_interaction(
+async def handle(
     interaction_request: InteractionRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
