@@ -97,6 +97,7 @@ async def handle(
             tools=classification_tools,
             system_instruction=TIPO_DE_INTERACCION_SYSTEM_PROMPT,
             tool_config=classification_tool_config,
+            temperature=0.0,
             automatic_function_calling=types.AutomaticFunctionCallingConfig(
                 disable=True
             ),
@@ -117,32 +118,34 @@ async def handle(
         tool_call_name = None
 
         chat_config = types.GenerateContentConfig(
-            tools=[get_human_help], system_instruction=CONTACTO_BASE_SYSTEM_PROMPT
+            tools=[get_human_help],
+            system_instruction=CONTACTO_BASE_SYSTEM_PROMPT,
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                disable=True
+            ),
         )
         response_chat = await client.aio.models.generate_content(
             model=model, contents=genai_history, config=chat_config
         )
 
-        if response_chat.automatic_function_calling_history:
-            function_calls = (
-                part.function_call
-                for content in reversed(response_chat.automatic_function_calling_history)
-                if content.role == "model" and content.parts
-                for part in content.parts
-                if part.function_call
-            )
-            last_function_call = next(function_calls, None)
-            if last_function_call:
-                tool_call_name = last_function_call.name
-                if tool_call_name == "get_human_help":
-                    logger.info(
-                        f"The user with sessionId: {interaction_request.sessionId} requires human help"
-                    )
+        if response_chat.function_calls:
+            function_call = response_chat.function_calls[0]
+            if function_call.name == "get_human_help":
+                tool_call_name = function_call.name
+                logger.info(
+                    f"The user with sessionId: {interaction_request.sessionId} requires human help"
+                )
+                assistant_text = get_human_help()
+                assistant_message = InteractionMessage(
+                    type="assistant", message=assistant_text
+                )
 
-        if response_chat.text:
+        if response_chat.text and not assistant_message:
             assistant_message = InteractionMessage(
                 type="assistant", message=response_chat.text
             )
+
+        if assistant_message:
             history_messages.append(assistant_message)
 
         if interaction:
@@ -171,4 +174,3 @@ async def handle(
             status_code=500,
             detail="An unexpected error occurred. Check server logs and environment variables.",
         )
-
