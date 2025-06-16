@@ -1,0 +1,16 @@
+from sqlalchemy import Column, String
+from sqlalchemy.dialects.postgresql import JSONB
+
+from .db import Base
+
+
+class Interaction(Base):
+    """
+    Represents a conversation session stored in the database.
+    """
+
+    __tablename__ = "interactions"
+
+    session_id = Column(String, primary_key=True, index=True)
+    messages = Column(JSONB, nullable=False)
+
