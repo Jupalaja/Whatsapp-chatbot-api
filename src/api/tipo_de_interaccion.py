@@ -17,7 +17,7 @@ from ..schemas import (
 )
 from ..model.prompts import (
     TIPO_DE_INTERACCION_SYSTEM_PROMPT,
-    INTERACTION_SYSTEM_PROMPT,
+    CONTACTO_BASE_SYSTEM_PROMPT,
 )
 
 router = APIRouter()
@@ -134,7 +134,7 @@ async def handle_interaction(
         tool_call_name = None
 
         chat_config = types.GenerateContentConfig(
-            tools=[get_human_help], system_instruction=INTERACTION_SYSTEM_PROMPT
+            tools=[get_human_help], system_instruction=CONTACTO_BASE_SYSTEM_PROMPT
         )
         response_chat = await client.aio.models.generate_content(
             model=model, contents=genai_history, config=chat_config
