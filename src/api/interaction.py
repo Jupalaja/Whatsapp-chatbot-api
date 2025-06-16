@@ -8,15 +8,11 @@ from .. import models
 from ..db import get_db
 from ..model.constants import GEMINI_MODEL
 from ..model.prompts import CONTACTO_BASE_SYSTEM_PROMPT
+from ..model.tools import get_human_help
 from ..schemas import InteractionRequest, InteractionResponse, InteractionMessage
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-
-
-def get_human_help():
-    """Use this function when the user explicitly asks for human help or to talk to a human."""
-    return "A human will be with you shortly."
 
 
 @router.post("/interaction", response_model=InteractionResponse)
@@ -57,7 +53,11 @@ async def handle_interaction(
 
         tools = [get_human_help]
         config = types.GenerateContentConfig(
-            tools=tools, system_instruction=CONTACTO_BASE_SYSTEM_PROMPT
+            tools=tools,
+            system_instruction=CONTACTO_BASE_SYSTEM_PROMPT,
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                disable=True
+            ),
         )
 
         response = await client.aio.models.generate_content(
@@ -67,32 +67,25 @@ async def handle_interaction(
         assistant_message = None
         tool_call_name = None
 
-        # When AFC is used, inspect automatic_function_calling_history to find the last tool call.
-        if response.automatic_function_calling_history:
-            # Find the last function call from the model in the history.
-            function_calls = (
-                part.function_call
-                for content in reversed(response.automatic_function_calling_history)
-                if content.role == "model" and content.parts
-                for part in content.parts
-                if part.function_call
-            )
-            # The `next` function gets the first item from an iterator, or None if it's empty.
-            # Since we reversed the history, this is the last function call made.
-            last_function_call = next(function_calls, None)
-            if last_function_call:
-                tool_call_name = last_function_call.name
+        if response.function_calls:
+            function_call = response.function_calls[0]
+            if function_call.name == "get_human_help":
+                tool_call_name = function_call.name
+                logger.info(
+                    f"The user with sessionId: {interaction_request.sessionId} requires human help"
+                )
+                assistant_text = get_human_help()
+                assistant_message = InteractionMessage(
+                    type="assistant", message=assistant_text
+                )
 
-        if tool_call_name == "get_human_help":
-            logger.info(
-                f"The user with sessionId: {interaction_request.sessionId} requires human help"
-            )
-
-        if response.text:
+        if response.text and not assistant_message:
             assistant_message = InteractionMessage(
                 type="assistant",
                 message=response.text,
             )
+
+        if assistant_message:
             history_messages.append(assistant_message)
 
         # Upsert interaction

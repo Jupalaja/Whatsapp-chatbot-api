@@ -1,5 +1,4 @@
 import logging
-from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 import google.genai as genai
@@ -8,36 +7,20 @@ from google.genai import errors, types
 from .. import models
 from ..db import get_db
 from ..model.constants import TIPO_DE_INTERACCION_MESSAGES_UNTIL_HUMAN, GEMINI_MODEL
+from ..model.prompts import (
+    TIPO_DE_INTERACCION_SYSTEM_PROMPT,
+    CONTACTO_BASE_SYSTEM_PROMPT,
+)
+from ..model.tools import clasificar_interaccion, get_human_help
 from ..schemas import (
     InteractionRequest,
     InteractionMessage,
     TipoDeInteraccionResponse,
     Clasificacion,
-    CategoriaPuntuacion,
-)
-from ..model.prompts import (
-    TIPO_DE_INTERACCION_SYSTEM_PROMPT,
-    CONTACTO_BASE_SYSTEM_PROMPT,
 )
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-
-
-def get_human_help():
-    """Use this function when the user explicitly asks for human help or to talk to a human."""
-    return "A human will be with you shortly."
-
-
-def clasificar_interaccion(
-    puntuacionesPorCategoria: List[CategoriaPuntuacion],
-    clasificacionPrimaria: str,
-    clasificacionesAlternativas: List[str],
-):
-    """Clasifica la interacción del usuario en una de varias categorías predefinidas."""
-    # This is a dummy function for schema generation for the model.
-    # The model will generate the arguments for this function.
-    return locals()
 
 
 @router.post("/tipo-de-interaccion", response_model=TipoDeInteraccionResponse)
@@ -188,3 +171,4 @@ async def handle_interaction(
             status_code=500,
             detail="An unexpected error occurred. Check server logs and environment variables.",
         )
+
