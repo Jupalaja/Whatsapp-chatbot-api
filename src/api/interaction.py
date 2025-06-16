@@ -7,6 +7,7 @@ from google.genai import errors, types
 from .. import models
 from ..db import get_db
 from ..model.constants import GEMINI_MODEL
+from ..model.prompts import INTERACTION_SYSTEM_PROMPT
 from ..schemas import InteractionRequest, InteractionResponse, InteractionMessage
 
 router = APIRouter()
@@ -55,7 +56,9 @@ async def handle_interaction(
             )
 
         tools = [get_human_help]
-        config = types.GenerateContentConfig(tools=tools)
+        config = types.GenerateContentConfig(
+            tools=tools, system_instruction=INTERACTION_SYSTEM_PROMPT
+        )
 
         response = await client.aio.models.generate_content(
             model=model, contents=genai_history, config=config

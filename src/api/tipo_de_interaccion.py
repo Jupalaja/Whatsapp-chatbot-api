@@ -15,7 +15,10 @@ from ..schemas import (
     Clasificacion,
     CategoriaPuntuacion,
 )
-from ..model.prompts import TIPO_DE_INTERACCION_SYSTEM_PROMPT
+from ..model.prompts import (
+    TIPO_DE_INTERACCION_SYSTEM_PROMPT,
+    INTERACTION_SYSTEM_PROMPT,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -88,13 +91,6 @@ async def handle_interaction(
             clasificacion=None,
         )
 
-    tool_config = types.ToolConfig(
-        function_calling_config=types.FunctionCallingConfig(
-            mode=types.FunctionCallingConfigMode.ANY,
-            allowed_function_names=["clasificar_interaccion"],
-        )
-    )
-
     try:
         model = GEMINI_MODEL
 
@@ -106,58 +102,63 @@ async def handle_interaction(
             for msg in history_messages
         ]
 
-        tools = [clasificar_interaccion, get_human_help]
-        config = types.GenerateContentConfig(
-            tools=tools,
+        # First, classify the interaction
+        classification_tool_config = types.ToolConfig(
+            function_calling_config=types.FunctionCallingConfig(
+                mode=types.FunctionCallingConfigMode.ANY,
+                allowed_function_names=["clasificar_interaccion"],
+            )
+        )
+        classification_tools = [clasificar_interaccion]
+        classification_config = types.GenerateContentConfig(
+            tools=classification_tools,
             system_instruction=TIPO_DE_INTERACCION_SYSTEM_PROMPT,
-            tool_config=tool_config,
+            tool_config=classification_tool_config,
             automatic_function_calling=types.AutomaticFunctionCallingConfig(
                 disable=True
             ),
         )
 
-        response = await client.aio.models.generate_content(
-            model=model, contents=genai_history, config=config
+        response_classification = await client.aio.models.generate_content(
+            model=model, contents=genai_history, config=classification_config
         )
 
+        clasificacion = None
+        if response_classification.function_calls:
+            last_function_call = response_classification.function_calls[0]
+            if last_function_call.name == "clasificar_interaccion":
+                clasificacion = Clasificacion.model_validate(last_function_call.args)
+
+        # Second, get a conversational response
         assistant_message = None
         tool_call_name = None
-        clasificacion = None
 
-        if response.automatic_function_calling_history:
+        chat_config = types.GenerateContentConfig(
+            tools=[get_human_help], system_instruction=INTERACTION_SYSTEM_PROMPT
+        )
+        response_chat = await client.aio.models.generate_content(
+            model=model, contents=genai_history, config=chat_config
+        )
+
+        if response_chat.automatic_function_calling_history:
             function_calls = (
                 part.function_call
-                for content in reversed(response.automatic_function_calling_history)
+                for content in reversed(response_chat.automatic_function_calling_history)
                 if content.role == "model" and content.parts
                 for part in content.parts
                 if part.function_call
             )
             last_function_call = next(function_calls, None)
-
             if last_function_call:
                 tool_call_name = last_function_call.name
-                if tool_call_name == "clasificar_interaccion":
-                    clasificacion = Clasificacion.model_validate(
-                        last_function_call.args
-                    )
-                elif tool_call_name == "get_human_help":
+                if tool_call_name == "get_human_help":
                     logger.info(
                         f"The user with sessionId: {interaction_request.sessionId} requires human help"
                     )
 
-        elif response.function_calls:
-            last_function_call = response.function_calls[0]
-            tool_call_name = last_function_call.name
-            if tool_call_name == "clasificar_interaccion":
-                clasificacion = Clasificacion.model_validate(last_function_call.args)
-            elif tool_call_name == "get_human_help":
-                logger.info(
-                    f"The user with sessionId: {interaction_request.sessionId} requires human help"
-                )
-
-        if response.text:
+        if response_chat.text:
             assistant_message = InteractionMessage(
-                type="assistant", message=response.text
+                type="assistant", message=response_chat.text
             )
             history_messages.append(assistant_message)
 
@@ -175,9 +176,7 @@ async def handle_interaction(
         return TipoDeInteraccionResponse(
             sessionId=interaction_request.sessionId,
             messages=[assistant_message] if assistant_message else [],
-            toolCall=tool_call_name
-            if tool_call_name != "clasificar_interaccion"
-            else None,
+            toolCall=tool_call_name,
             clasificacion=clasificacion,
         )
     except errors.APIError as e:
