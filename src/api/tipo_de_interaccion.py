@@ -7,6 +7,7 @@ from google.genai import errors, types
 
 from .. import models
 from ..db import get_db
+from ..model.constants import TIPO_DE_INTERACCION_MESSAGES_UNTIL_HUMAN, GEMINI_MODEL
 from ..schemas import (
     InteractionRequest,
     InteractionMessage,
@@ -14,7 +15,7 @@ from ..schemas import (
     Clasificacion,
     CategoriaPuntuacion,
 )
-from ..model.prompts import SYSTEM_PROMPT
+from ..model.prompts import TIPO_DE_INTERACCION_SYSTEM_PROMPT
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -61,7 +62,7 @@ async def handle_interaction(
 
     user_message_count = sum(1 for msg in history_messages if msg.type == "user")
 
-    if user_message_count > 4:
+    if user_message_count >= TIPO_DE_INTERACCION_MESSAGES_UNTIL_HUMAN:
         logger.info(
             f"User with sessionId {interaction_request.sessionId} has sent more than 4 messages. Activating human help tool."
         )
@@ -95,7 +96,7 @@ async def handle_interaction(
     )
 
     try:
-        model = "gemini-1.5-flash-latest"
+        model = GEMINI_MODEL
 
         genai_history = [
             types.Content(
@@ -108,7 +109,7 @@ async def handle_interaction(
         tools = [clasificar_interaccion, get_human_help]
         config = types.GenerateContentConfig(
             tools=tools,
-            system_instruction=SYSTEM_PROMPT,
+            system_instruction=TIPO_DE_INTERACCION_SYSTEM_PROMPT,
             tool_config=tool_config,
             automatic_function_calling=types.AutomaticFunctionCallingConfig(
                 disable=True

@@ -1,4 +1,4 @@
-SYSTEM_PROMPT = """
+TIPO_DE_INTERACCION_SYSTEM_PROMPT = """
 Eres un experto clasificador de mensajes para Botero Soto, una empresa líder en logística y transporte en Colombia.
 |**CONTEXTO DE LA EMPRESA:**Botero Soto ofrece servicios logísticos integrales, incluidos el transporte, almacenamiento 
 y gestión de la cadena de suministro. La empresa interactúa con diversas partes interesadas a través de diferentes 

@@ -6,6 +6,7 @@ from google.genai import errors, types
 
 from .. import models
 from ..db import get_db
+from ..model.constants import GEMINI_MODEL
 from ..schemas import InteractionRequest, InteractionResponse, InteractionMessage
 
 router = APIRouter()
@@ -43,7 +44,7 @@ async def handle_interaction(
     history_messages.append(interaction_request.message)
 
     try:
-        model = "gemini-1.5-flash-latest"
+        model = GEMINI_MODEL
 
         genai_history = []
         for msg in history_messages:

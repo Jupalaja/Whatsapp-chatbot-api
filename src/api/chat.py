@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Request
 import google.genai as genai
 from google.genai import errors
 
+from ..model.constants import GEMINI_MODEL
 from ..schemas import ChatRequest, ChatResponse
 
 router = APIRouter()
@@ -15,7 +16,7 @@ async def chat_with_gemini(chat_request: ChatRequest, request: Request):
     """
     client: genai.Client = request.app.state.genai_client
     try:
-        model = "gemini-1.5-flash-latest"
+        model = GEMINI_MODEL
 
         response = await client.aio.models.generate_content(
             model=model, contents=chat_request.message
