@@ -133,7 +133,7 @@ async def handle_interaction(
     history_messages.append(interaction_request.message)
 
     try:
-        model = "gemini-2.0-flash"
+        model = "gemini-1.5-flash-latest"
 
         genai_history = [
             types.Content(
@@ -149,8 +149,12 @@ async def handle_interaction(
             system_instruction=SYSTEM_PROMPT,
             tool_config=types.ToolConfig(
                 function_calling_config=types.FunctionCallingConfig(
-                    mode=types.FunctionCallingConfigMode.ANY, allowed_function_names=["clasificar_interaccion"]
+                    mode=types.FunctionCallingConfigMode.ANY,
+                    allowed_function_names=["clasificar_interaccion"],
                 )
+            ),
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                disable=True
             ),
         )
 
@@ -175,16 +179,18 @@ async def handle_interaction(
             if last_function_call:
                 tool_call_name = last_function_call.name
                 if tool_call_name == "clasificar_interaccion":
-                    clasificacion = Clasificacion.model_validate(last_function_call.args)
+                    clasificacion = Clasificacion.model_validate(
+                        last_function_call.args
+                    )
                 elif tool_call_name == "get_human_help":
                     logger.info(
                         f"The user with sessionId: {interaction_request.sessionId} requires human help"
                     )
-        
+
         elif response.function_calls:
-             last_function_call = response.function_calls[0]
-             tool_call_name = last_function_call.name
-             if tool_call_name == "clasificar_interaccion":
+            last_function_call = response.function_calls[0]
+            tool_call_name = last_function_call.name
+            if tool_call_name == "clasificar_interaccion":
                 clasificacion = Clasificacion.model_validate(last_function_call.args)
 
         if response.text:

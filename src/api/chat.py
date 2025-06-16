@@ -15,7 +15,7 @@ async def chat_with_gemini(chat_request: ChatRequest, request: Request):
     """
     client: genai.Client = request.app.state.genai_client
     try:
-        model = "gemini-2.0-flash"
+        model = "gemini-1.5-flash-latest"
 
         response = await client.aio.models.generate_content(
             model=model, contents=chat_request.message
