@@ -23,3 +23,24 @@ class InteractionResponse(BaseModel):
     sessionId: str
     messages: List[InteractionMessage]
     toolCall: Optional[str] = None
+
+class CategoriaPuntuacion(BaseModel):
+    categoria: Literal[
+        "CLIENTE_POTENCIAL",
+        "CLIENTE_ACTIVO",
+        "TRANSPORTISTA_TERCERO",
+        "PROVEEDOR_POTENCIAL",
+        "USUARIO_ADMINISTRATIVO",
+        "CANDIDATO_A_EMPLEO",
+    ]
+    puntuacionDeConfianza: float
+    razonamiento: str
+    indicadoresClave: List[str]
+
+class Clasificacion(BaseModel):
+    puntuacionesPorCategoria: List[CategoriaPuntuacion]
+    clasificacionPrimaria: str
+    clasificacionesAlternativas: List[str]
+
+class TipoDeInteraccionResponse(InteractionResponse):
+    clasificacion: Optional[Clasificacion] = None
