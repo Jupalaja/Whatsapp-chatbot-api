@@ -59,6 +59,41 @@ async def handle_interaction(
 
     history_messages.append(interaction_request.message)
 
+    user_message_count = sum(1 for msg in history_messages if msg.type == "user")
+
+    if user_message_count > 4:
+        logger.info(
+            f"User with sessionId {interaction_request.sessionId} has sent more than 4 messages. Activating human help tool."
+        )
+        assistant_message = InteractionMessage(
+            type="assistant", message="OK. A human will be with you shortly.\n"
+        )
+        history_messages.append(assistant_message)
+
+        if interaction:
+            interaction.messages = [msg.model_dump() for msg in history_messages]
+        else:
+            interaction = models.Interaction(
+                session_id=interaction_request.sessionId,
+                messages=[msg.model_dump() for msg in history_messages],
+            )
+            db.add(interaction)
+        await db.commit()
+
+        return TipoDeInteraccionResponse(
+            sessionId=interaction_request.sessionId,
+            messages=[assistant_message],
+            toolCall="get_human_help",
+            clasificacion=None,
+        )
+
+    tool_config = types.ToolConfig(
+        function_calling_config=types.FunctionCallingConfig(
+            mode=types.FunctionCallingConfigMode.ANY,
+            allowed_function_names=["clasificar_interaccion"],
+        )
+    )
+
     try:
         model = "gemini-1.5-flash-latest"
 
@@ -74,12 +109,7 @@ async def handle_interaction(
         config = types.GenerateContentConfig(
             tools=tools,
             system_instruction=SYSTEM_PROMPT,
-            tool_config=types.ToolConfig(
-                function_calling_config=types.FunctionCallingConfig(
-                    mode=types.FunctionCallingConfigMode.ANY,
-                    allowed_function_names=["clasificar_interaccion"],
-                )
-            ),
+            tool_config=tool_config,
             automatic_function_calling=types.AutomaticFunctionCallingConfig(
                 disable=True
             ),
@@ -119,6 +149,10 @@ async def handle_interaction(
             tool_call_name = last_function_call.name
             if tool_call_name == "clasificar_interaccion":
                 clasificacion = Clasificacion.model_validate(last_function_call.args)
+            elif tool_call_name == "get_human_help":
+                logger.info(
+                    f"The user with sessionId: {interaction_request.sessionId} requires human help"
+                )
 
         if response.text:
             assistant_message = InteractionMessage(
