@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Literal
+from typing import List, Literal, Optional
 
 class ChatRequest(BaseModel):
     message: str
@@ -22,3 +22,4 @@ class InteractionRequest(BaseModel):
 class InteractionResponse(BaseModel):
     sessionId: str
     messages: List[InteractionMessage]
+    toolCall: Optional[str] = None

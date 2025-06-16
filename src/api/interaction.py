@@ -1,5 +1,4 @@
 import logging
-from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 import google.genai as genai
@@ -11,6 +10,11 @@ from ..schemas import InteractionRequest, InteractionResponse, InteractionMessag
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def get_human_help():
+    """Use this function when the user explicitly asks for human help or to talk to a human."""
+    return "A human will be with you shortly."
 
 
 @router.post("/interaction", response_model=InteractionResponse)
@@ -49,11 +53,32 @@ async def handle_interaction(
                 types.Content(role=role, parts=[types.Part(text=msg.message)])
             )
 
+        tools = [get_human_help]
+        config = types.GenerateContentConfig(tools=tools)
+
         response = await client.aio.models.generate_content(
-            model=model, contents=genai_history
+            model=model, contents=genai_history, config=config
         )
 
         assistant_message = None
+        tool_call_name = None
+
+        # When AFC is used, inspect automatic_function_calling_history to find tool calls.
+        if response.automatic_function_calling_history:
+            for content in reversed(response.automatic_function_calling_history):
+                if content.role == "model" and content.parts:
+                    for part in content.parts:
+                        if part.function_call:
+                            tool_call_name = part.function_call.name
+                            break
+                if tool_call_name:
+                    break
+
+        if tool_call_name == "get_human_help":
+            logger.info(
+                f"The user with sessionId: {interaction_request.sessionId} requires human help"
+            )
+
         if response.text:
             assistant_message = InteractionMessage(
                 type="assistant",
@@ -76,6 +101,7 @@ async def handle_interaction(
         return InteractionResponse(
             sessionId=interaction_request.sessionId,
             messages=[assistant_message] if assistant_message else [],
+            toolCall=tool_call_name,
         )
     except errors.APIError as e:
         logger.error(f"Gemini API Error: {e}")
