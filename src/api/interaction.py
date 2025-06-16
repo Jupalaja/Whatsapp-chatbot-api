@@ -27,7 +27,7 @@ async def handle_interaction(
     client: genai.Client = request.app.state.genai_client
 
     # Get interaction from DB
-    interaction = await db.get(models.Interaction, interaction_request.sessionID)
+    interaction = await db.get(models.Interaction, interaction_request.sessionId)
 
     history_messages = []
     if interaction:
@@ -53,20 +53,20 @@ async def handle_interaction(
             model=model, contents=genai_history
         )
 
+        assistant_message = None
         if response.text:
-            history_messages.append(
-                InteractionMessage(
-                    type="assistant",
-                    message=response.text,
-                )
+            assistant_message = InteractionMessage(
+                type="assistant",
+                message=response.text,
             )
+            history_messages.append(assistant_message)
 
         # Upsert interaction
         if interaction:
             interaction.messages = [msg.model_dump() for msg in history_messages]
         else:
             interaction = models.Interaction(
-                session_id=interaction_request.sessionID,
+                session_id=interaction_request.sessionId,
                 messages=[msg.model_dump() for msg in history_messages],
             )
             db.add(interaction)
@@ -74,7 +74,8 @@ async def handle_interaction(
         await db.commit()
 
         return InteractionResponse(
-            sessionID=interaction_request.sessionID, messages=history_messages
+            sessionId=interaction_request.sessionId,
+            messages=[assistant_message] if assistant_message else [],
         )
     except errors.APIError as e:
         logger.error(f"Gemini API Error: {e}")
@@ -100,4 +101,4 @@ async def get_interaction_history(sessionID: str, db: AsyncSession = Depends(get
         InteractionMessage.model_validate(msg) for msg in interaction.messages
     ]
 
-    return InteractionResponse(sessionID=sessionID, messages=history_messages)
+    return InteractionResponse(sessionId=sessionID, messages=history_messages)

@@ -16,9 +16,9 @@ class InteractionMessage(BaseModel):
     message: str
 
 class InteractionRequest(BaseModel):
-    sessionID: str
+    sessionId: str
     message: InteractionMessage
 
 class InteractionResponse(BaseModel):
-    sessionID: str
+    sessionId: str
     messages: List[InteractionMessage]
