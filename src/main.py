@@ -4,7 +4,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 import google.genai as genai
 
-from .api import chat, interaction, tipo_de_interaccion, cliente_potencial
+from .api import chat, interaction, tipo_de_interaccion
+from .api.cliente_potencial import router as cliente_potencial
 from .config import settings
 from .db import engine, test_db_connection
 from .schemas import HealthResponse
