@@ -16,7 +16,7 @@ from .tools import (
 )
 from .state import ClientePotencialState
 
-from src.shared.constants import GEMINI_MODEL
+from src.shared.constants import GEMINI_MODEL, MESSAGES_AFTER_CONVERSATION_FINISHED
 from src.shared.tools import get_human_help
 from src.shared.schemas import InteractionMessage
 from src.shared.enums import InteractionType
@@ -53,6 +53,24 @@ async def handle_cliente_potencial(
         - The updated interaction data.
     """
     interaction_data = interaction_data or {}
+
+    if current_state == ClientePotencialState.CONVERSATION_FINISHED:
+        user_message_count = 0
+        for msg in reversed(history_messages):
+            if msg.role == InteractionType.USER:
+                user_message_count += 1
+            else:
+                break
+
+        if user_message_count >= MESSAGES_AFTER_CONVERSATION_FINISHED:
+            assistant_message_text = get_human_help()
+            tool_call_name = "get_human_help"
+            next_state = ClientePotencialState.HUMAN_ESCALATION
+            assistant_message = InteractionMessage(
+                role=InteractionType.MODEL, message=assistant_message_text
+            )
+            return [assistant_message], next_state, tool_call_name, interaction_data
+
     genai_history = await get_genai_history(history_messages)
 
     if current_state == ClientePotencialState.AWAITING_NIT:
