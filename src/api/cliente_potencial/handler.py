@@ -126,7 +126,7 @@ async def handle_cliente_potencial(
             if 'is_persona_natural' in tool_results:
                 next_state = ClientePotencialState.AWAITING_REMAINING_INFORMATION
             elif 'search_nit' in tool_results:
-                next_state = ClientePotencialState.NIT_PROVIDED
+                next_state = ClientePotencialState.AWAITING_REMAINING_INFORMATION
 
             updated_genai_history = await get_genai_history(history_messages)
             response2 = await client.aio.models.generate_content(
