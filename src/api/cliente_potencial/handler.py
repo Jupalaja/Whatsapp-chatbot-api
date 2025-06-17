@@ -29,8 +29,9 @@ async def handle_cliente_potencial(
     session_id: str,
     history_messages: list[InteractionMessage],
     current_state: ClientePotencialState,
+    interaction_data: Optional[dict],
     client: genai.Client,
-) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str]]:
+) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str], Optional[dict]]:
     """
     Handles the core logic of the conversation based on its current state.
 
@@ -41,6 +42,7 @@ async def handle_cliente_potencial(
         session_id: The ID of the current conversation session.
         history_messages: The full message history of the conversation.
         current_state: The current state of the conversation state machine.
+        interaction_data: The stored data from the interaction.
         client: The configured Google GenAI client.
 
     Returns:
@@ -48,16 +50,15 @@ async def handle_cliente_potencial(
         - A list of new messages from the assistant to be sent to the user.
         - The next state of the conversation.
         - The name of a tool call if one was triggered for special client-side handling.
+        - The updated interaction data.
     """
+    interaction_data = interaction_data or {}
     genai_history = await get_genai_history(history_messages)
 
     if current_state == ClientePotencialState.AWAITING_NIT:
         tools = [search_nit, is_persona_natural, get_human_help]
     elif current_state == ClientePotencialState.AWAITING_REMAINING_INFORMATION:
-        tools = [
-            needs_freight_forwarder,
-            get_human_help,
-        ]
+        tools = [needs_freight_forwarder, get_human_help]
     else:
         tools = [get_human_help]
 
@@ -93,6 +94,9 @@ async def handle_cliente_potencial(
 
         for part in model_turn_content.parts:
             fc = part.function_call
+            if not fc:
+                continue
+
             tool_name = fc.name
             tool_args = dict(fc.args) if fc.args else {}
             tool_function = next((t for t in tools if t.__name__ == tool_name), None)
@@ -123,16 +127,30 @@ async def handle_cliente_potencial(
             assistant_message_text = PROMPT_AGENCIAMIENTO_DE_CARGA
             tool_call_name = 'needs_freight_forwarder'
         else:
-            if 'is_persona_natural' in tool_results:
+            # Non-terminal tool calls, require another LLM call
+            if 'search_nit' in tool_results:
+                interaction_data['search_nit_result'] = tool_results['search_nit']
                 next_state = ClientePotencialState.AWAITING_REMAINING_INFORMATION
-            elif 'search_nit' in tool_results:
+            elif 'is_persona_natural' in tool_results:
                 next_state = ClientePotencialState.AWAITING_REMAINING_INFORMATION
 
+            # Determine tools for the next turn
+            if next_state == ClientePotencialState.AWAITING_REMAINING_INFORMATION:
+                next_tools = [needs_freight_forwarder, get_human_help]
+            else:
+                next_tools = tools
+
+            # Update config for the second call, disabling tool use to get a text response
+            final_config = types.GenerateContentConfig(
+                system_instruction=CLIENTE_POTENCIAL_SYSTEM_PROMPT,
+                temperature=0.0,
+            )
+            
             updated_genai_history = await get_genai_history(history_messages)
             response2 = await client.aio.models.generate_content(
                 model=GEMINI_MODEL,
                 contents=updated_genai_history,
-                config=config,
+                config=final_config,
             )
             assistant_message_text = response2.text
 
@@ -148,4 +166,4 @@ async def handle_cliente_potencial(
         role=InteractionType.MODEL, message=assistant_message_text
     )
 
-    return [assistant_message], next_state, tool_call_name
+    return [assistant_message], next_state, tool_call_name, interaction_data

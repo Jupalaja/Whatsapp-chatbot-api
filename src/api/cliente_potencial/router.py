@@ -1,4 +1,6 @@
 import logging
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 import google.genai as genai
@@ -30,12 +32,15 @@ async def handle(
 
     history_messages: list[InteractionMessage] = []
     current_state = ClientePotencialState.AWAITING_NIT
+    interaction_data: Optional[dict] = None
     if interaction:
         history_messages = [
             InteractionMessage.model_validate(msg) for msg in interaction.messages
         ]
         if interaction.state:
             current_state = ClientePotencialState(interaction.state)
+        if interaction.interaction_data:
+            interaction_data = interaction.interaction_data
 
     if not history_messages:
         assistant_message = InteractionMessage(
@@ -61,10 +66,12 @@ async def handle(
             new_assistant_messages,
             next_state,
             tool_call_name,
+            new_interaction_data,
         ) = await handle_cliente_potencial(
             session_id=interaction_request.sessionId,
             history_messages=history_messages,
             current_state=current_state,
+            interaction_data=interaction_data,
             client=client,
         )
 
@@ -73,11 +80,13 @@ async def handle(
         if interaction:
             interaction.messages = [msg.model_dump() for msg in history_messages]
             interaction.state = next_state.value
+            interaction.interaction_data = new_interaction_data
         else:
             interaction = models.Interaction(
                 session_id=interaction_request.sessionId,
                 messages=[msg.model_dump() for msg in history_messages],
                 state=next_state.value,
+                interaction_data=new_interaction_data,
             )
             db.add(interaction)
 

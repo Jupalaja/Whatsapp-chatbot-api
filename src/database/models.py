@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String
+from sqlalchemy import Column, String, JSON
 from sqlalchemy.dialects.postgresql import JSONB
 
 from .db import Base
@@ -13,4 +13,5 @@ class Interaction(Base):
 
     session_id = Column(String, primary_key=True, index=True)
     messages = Column(JSONB, nullable=False)
-    state = Column(String(50), nullable=True)
+    state = Column(String, nullable=True)
+    interaction_data = Column(JSON, nullable=True)
