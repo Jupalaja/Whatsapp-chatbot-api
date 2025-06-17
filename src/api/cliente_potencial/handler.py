@@ -57,7 +57,7 @@ async def handle_cliente_potencial(
 
     if current_state == ClientePotencialState.AWAITING_NIT:
         tools = [search_nit, is_persona_natural, get_human_help]
-    elif current_state == ClientePotencialState.AWAITING_REMAINING_INFORMATION:
+    elif current_state == ClientePotencialState.AWAITING_PERSONA_NATURAL_FREIGHT_INFO:
         tools = [needs_freight_forwarder, get_human_help]
     else:
         tools = [get_human_help]
@@ -78,11 +78,13 @@ async def handle_cliente_potencial(
     next_state = current_state
 
     if not response.function_calls:
-        if current_state == ClientePotencialState.AWAITING_REMAINING_INFORMATION:
+        if current_state == ClientePotencialState.AWAITING_PERSONA_NATURAL_FREIGHT_INFO:
             next_state = ClientePotencialState.CONVERSATION_FINISHED
             assistant_message_text = PROMPT_DISCARD_PERSONA_NATURAL
         else:
             assistant_message_text = response.text
+            if current_state == ClientePotencialState.AWAITING_REMAINING_INFORMATION:
+                next_state = ClientePotencialState.CONVERSATION_FINISHED
     else:
         model_turn_content = response.candidates[0].content
         history_messages.extend(
@@ -132,20 +134,14 @@ async def handle_cliente_potencial(
                 interaction_data['search_nit_result'] = tool_results['search_nit']
                 next_state = ClientePotencialState.AWAITING_REMAINING_INFORMATION
             elif 'is_persona_natural' in tool_results:
-                next_state = ClientePotencialState.AWAITING_REMAINING_INFORMATION
-
-            # Determine tools for the next turn
-            if next_state == ClientePotencialState.AWAITING_REMAINING_INFORMATION:
-                next_tools = [needs_freight_forwarder, get_human_help]
-            else:
-                next_tools = tools
+                next_state = ClientePotencialState.AWAITING_PERSONA_NATURAL_FREIGHT_INFO
 
             # Update config for the second call, disabling tool use to get a text response
             final_config = types.GenerateContentConfig(
                 system_instruction=CLIENTE_POTENCIAL_SYSTEM_PROMPT,
                 temperature=0.0,
             )
-            
+
             updated_genai_history = await get_genai_history(history_messages)
             response2 = await client.aio.models.generate_content(
                 model=GEMINI_MODEL,
