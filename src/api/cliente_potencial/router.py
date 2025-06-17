@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import google.genai as genai
 from google.genai import errors
 
+from .prompts import PROMPT_ASK_FOR_NIT
 from ... import models
 from ...db import get_db
 from ...schemas import InteractionRequest, InteractionResponse, InteractionMessage
@@ -20,20 +21,8 @@ async def handle(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Handles a user-assistant interaction for qualifying a potential client.
-
-    This endpoint manages a stateful conversation by:
-    1. Retrieving the conversation history and state from the database.
-    2. Handling the initial greeting for a new conversation.
-    3. Appending the new user message to the history.
-    4. Delegating to a state machine handler to process the conversation logic.
-    5. Persisting the updated conversation history and state.
-    6. Returning the assistant's response to the user.
-    """
     client: genai.Client = request.app.state.genai_client
 
-    # Retrieve interaction from the database or initialize a new one.
     interaction = await db.get(models.Interaction, interaction_request.sessionId)
 
     history_messages: list[InteractionMessage] = []
@@ -45,11 +34,10 @@ async def handle(
         if interaction.state:
             current_state = ClientePotencialState(interaction.state)
 
-    # If this is the very first interaction, send a greeting and initialize state.
     if not history_messages:
         assistant_message = InteractionMessage(
             type="assistant",
-            message="¡Hola! Soy Sotobot, tu asistente virtual. Para empezar, ¿podrías indicarme el NIT de tu empresa?",
+            message=PROMPT_ASK_FOR_NIT,
         )
         history_messages.append(assistant_message)
         new_interaction = models.Interaction(
@@ -63,11 +51,9 @@ async def handle(
             sessionId=interaction_request.sessionId, messages=[assistant_message]
         )
 
-    # Append the new user message to the history for processing.
     history_messages.append(interaction_request.message)
 
     try:
-        # Delegate the core logic to the handler function.
         (
             new_assistant_messages,
             next_state,
@@ -79,10 +65,8 @@ async def handle(
             client=client,
         )
 
-        # Update the history with the new assistant messages.
         history_messages.extend(new_assistant_messages)
 
-        # Persist the updated state and history to the database.
         if interaction:
             interaction.messages = [msg.model_dump() for msg in history_messages]
             interaction.state = next_state.value
@@ -96,7 +80,6 @@ async def handle(
 
         await db.commit()
 
-        # Return the response to the user.
         return InteractionResponse(
             sessionId=interaction_request.sessionId,
             messages=new_assistant_messages,

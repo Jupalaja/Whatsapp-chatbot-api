@@ -7,8 +7,8 @@ from google.genai import errors, types
 from .. import models
 from ..db import get_db
 from ..model.constants import GEMINI_MODEL
-from ..model.prompts import CONTACTO_BASE_SYSTEM_PROMPT
-from ..model.tools import get_human_help
+from ..model.global_prompts import CONTACTO_BASE_SYSTEM_PROMPT
+from ..model.global_tools import get_human_help
 from ..schemas import InteractionRequest, InteractionResponse, InteractionMessage
 
 router = APIRouter()

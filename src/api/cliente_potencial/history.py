@@ -22,7 +22,6 @@ async def get_genai_history(
     """
     genai_history = []
     for msg in history_messages:
-        # Map internal roles to SDK roles
         role = "user"
         if msg.type == "assistant":
             role = "model"
@@ -30,14 +29,10 @@ async def get_genai_history(
             role = "tool"
 
         try:
-            # Tool call/response parts can be stored as JSON strings.
-            # Attempt to parse them.
             parts_data = json.loads(msg.message)
             parts = [types.Part.model_validate(p) for p in parts_data]
         except (json.JSONDecodeError, TypeError, ValidationError):
-            # Fallback for simple text messages.
             parts = [types.Part(text=msg.message)]
-
         genai_history.append(types.Content(role=role, parts=parts))
     return genai_history
 
@@ -57,15 +52,12 @@ def genai_content_to_interaction_messages(
     """
     messages = []
     for content in history:
-        # Map SDK roles back to internal roles
         role: Literal["user", "assistant", "tool"] = "user"
         if content.role == "model":
             role = "assistant"
         elif content.role == "tool":
             role = "tool"
 
-        # Serialize complex parts (like function calls) to a JSON string
-        # to fit the simple `message: str` schema.
         if len(content.parts) == 1 and content.parts[0].text is not None:
             message_str = content.parts[0].text
         else:

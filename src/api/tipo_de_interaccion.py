@@ -7,11 +7,11 @@ from google.genai import errors, types
 from .. import models
 from ..db import get_db
 from ..model.constants import TIPO_DE_INTERACCION_MESSAGES_UNTIL_HUMAN, GEMINI_MODEL
-from ..model.prompts import (
+from ..model.global_prompts import (
     TIPO_DE_INTERACCION_SYSTEM_PROMPT,
     CONTACTO_BASE_SYSTEM_PROMPT,
 )
-from ..model.tools import clasificar_interaccion, get_human_help
+from ..model.global_tools import clasificar_interaccion, get_human_help
 from ..schemas import (
     InteractionRequest,
     InteractionMessage,
