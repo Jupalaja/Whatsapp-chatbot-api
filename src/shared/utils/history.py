@@ -1,10 +1,10 @@
 import json
-from typing import List, Literal
 
 from google.genai import types
 from pydantic import ValidationError
 
-from ...schemas import InteractionMessage
+from src.shared.enums import InteractionType
+from src.shared.schemas import InteractionMessage
 
 
 async def get_genai_history(
@@ -23,9 +23,9 @@ async def get_genai_history(
     genai_history = []
     for msg in history_messages:
         role = "user"
-        if msg.type == "assistant":
+        if msg.type == InteractionType.ASSISTANT:
             role = "model"
-        elif msg.type == "tool":
+        elif msg.type == InteractionType.TOOL:
             role = "tool"
 
         try:
@@ -52,11 +52,11 @@ def genai_content_to_interaction_messages(
     """
     messages = []
     for content in history:
-        role: Literal["user", "assistant", "tool"] = "user"
+        role: InteractionType = InteractionType.USER
         if content.role == "model":
-            role = "assistant"
+            role = InteractionType.ASSISTANT
         elif content.role == "tool":
-            role = "tool"
+            role = InteractionType.TOOL
 
         if len(content.parts) == 1 and content.parts[0].text is not None:
             message_str = content.parts[0].text

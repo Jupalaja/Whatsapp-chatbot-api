@@ -4,67 +4,83 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import google.genai as genai
 from google.genai import errors
 
-from .prompts import PROMPT_ASK_FOR_NIT
-from .state import ClientePotencialState
 from .handler import handle
 
 from src.database import models
 from src.database.db import get_db
 from src.shared.enums import InteractionType
-from src.shared.schemas import InteractionRequest, InteractionResponse, InteractionMessage
-
+from src.shared.constants import TIPO_DE_INTERACCION_MESSAGES_UNTIL_HUMAN
+from src.shared.schemas import (
+    InteractionMessage,
+    InteractionRequest,
+    TipoDeInteraccionResponse,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-@router.post("/cliente-potencial", response_model=InteractionResponse)
+@router.post("/tipo-de-interaccion", response_model=TipoDeInteraccionResponse)
 async def handle(
     interaction_request: InteractionRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Handles a user-assistant interaction, classifying the interaction type,
+    continuing a conversation by loading history from the database,
+    appending the new message, and saving the updated history.
+    """
     client: genai.Client = request.app.state.genai_client
 
     interaction = await db.get(models.Interaction, interaction_request.sessionId)
 
-    history_messages: list[InteractionMessage] = []
-    current_state = ClientePotencialState.AWAITING_NIT
+    history_messages = []
     if interaction:
         history_messages = [
             InteractionMessage.model_validate(msg) for msg in interaction.messages
         ]
-        if interaction.state:
-            current_state = ClientePotencialState(interaction.state)
-
-    if not history_messages:
-        assistant_message = InteractionMessage(
-            type=InteractionType.ASSISTANT,
-            message=PROMPT_ASK_FOR_NIT,
-        )
-        history_messages.append(assistant_message)
-        new_interaction = models.Interaction(
-            session_id=interaction_request.sessionId,
-            messages=[msg.model_dump() for msg in history_messages],
-            state=current_state.value,
-        )
-        db.add(new_interaction)
-        await db.commit()
-        return InteractionResponse(
-            sessionId=interaction_request.sessionId, messages=[assistant_message]
-        )
 
     history_messages.append(interaction_request.message)
+
+    user_message_count = sum(
+        1 for msg in history_messages if msg.type == InteractionType.USER
+    )
+
+    if user_message_count >= TIPO_DE_INTERACCION_MESSAGES_UNTIL_HUMAN:
+        logger.info(
+            f"User with sessionId {interaction_request.sessionId} has sent more than {TIPO_DE_INTERACCION_MESSAGES_UNTIL_HUMAN} messages. Activating human help tool."
+        )
+        assistant_message = InteractionMessage(
+            type=InteractionType.ASSISTANT,
+            message="OK. A human will be with you shortly.\n",
+        )
+        history_messages.append(assistant_message)
+
+        if interaction:
+            interaction.messages = [msg.model_dump() for msg in history_messages]
+        else:
+            interaction = models.Interaction(
+                session_id=interaction_request.sessionId,
+                messages=[msg.model_dump() for msg in history_messages],
+            )
+            db.add(interaction)
+        await db.commit()
+
+        return TipoDeInteraccionResponse(
+            sessionId=interaction_request.sessionId,
+            messages=[assistant_message],
+            toolCall="get_human_help",
+            clasificacion=None,
+        )
 
     try:
         (
             new_assistant_messages,
-            next_state,
+            clasificacion,
             tool_call_name,
         ) = await handle(
-            session_id=interaction_request.sessionId,
             history_messages=history_messages,
-            current_state=current_state,
             client=client,
         )
 
@@ -72,21 +88,20 @@ async def handle(
 
         if interaction:
             interaction.messages = [msg.model_dump() for msg in history_messages]
-            interaction.state = next_state.value
         else:
             interaction = models.Interaction(
                 session_id=interaction_request.sessionId,
                 messages=[msg.model_dump() for msg in history_messages],
-                state=next_state.value,
             )
             db.add(interaction)
 
         await db.commit()
 
-        return InteractionResponse(
+        return TipoDeInteraccionResponse(
             sessionId=interaction_request.sessionId,
             messages=new_assistant_messages,
             toolCall=tool_call_name,
+            clasificacion=clasificacion,
         )
     except errors.APIError as e:
         logger.error(f"Gemini API Error: {e}")

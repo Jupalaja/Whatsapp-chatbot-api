@@ -4,11 +4,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 import google.genai as genai
 
-from .api import chat, interaction, tipo_de_interaccion
-from .api.cliente_potencial import router as cliente_potencial
-from .config import settings
-from .db import engine, test_db_connection
-from .schemas import HealthResponse
+from src.api.chat import router as chat
+from src.api.interaction import router as interaction
+from src.api.cliente_potencial import router as cliente_potencial
+from src.api.tipo_de_interaccion import router as tipo_de_interaccion
+from src.config import settings
+from src.database.db import engine, test_db_connection
+from src.shared.schemas import HealthResponse
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

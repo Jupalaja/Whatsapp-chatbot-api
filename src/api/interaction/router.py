@@ -4,12 +4,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import google.genai as genai
 from google.genai import errors, types
 
-from .. import models
-from ..db import get_db
-from ..model.constants import GEMINI_MODEL
-from ..model.global_prompts import CONTACTO_BASE_SYSTEM_PROMPT
-from ..model.global_tools import get_human_help
-from ..schemas import InteractionRequest, InteractionResponse, InteractionMessage
+from src.database import models
+from src.database.db import get_db
+from src.shared.schemas import InteractionType
+from src.shared.constants import GEMINI_MODEL
+from src.shared.prompts import CONTACTO_BASE_SYSTEM_PROMPT
+from src.shared.tools import get_human_help
+from src.shared.schemas import InteractionRequest, InteractionResponse, InteractionMessage
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -46,7 +47,7 @@ async def handle(
         genai_history = []
         for msg in history_messages:
             # The 'assistant' role from the API maps to the 'model' role in the genai library
-            role = "user" if msg.type == "user" else "model"
+            role = "user" if msg.type == InteractionType.USER else "model"
             genai_history.append(
                 types.Content(role=role, parts=[types.Part(text=msg.message)])
             )
@@ -76,12 +77,12 @@ async def handle(
                 )
                 assistant_text = get_human_help()
                 assistant_message = InteractionMessage(
-                    type="assistant", message=assistant_text
+                    type=InteractionType.ASSISTANT, message=assistant_text
                 )
 
         if response.text and not assistant_message:
             assistant_message = InteractionMessage(
-                type="assistant",
+                type=InteractionType.ASSISTANT,
                 message=response.text,
             )
 

@@ -1,0 +1,16 @@
+from enum import Enum
+
+
+class InteractionType(str, Enum):
+    USER = "user"
+    ASSISTANT = "assistant"
+    TOOL = "tool"
+
+
+class CategoriaClasificacion(str, Enum):
+    CLIENTE_POTENCIAL = "CLIENTE_POTENCIAL"
+    CLIENTE_ACTIVO = "CLIENTE_ACTIVO"
+    TRANSPORTISTA_TERCERO = "TRANSPORTISTA_TERCERO"
+    PROVEEDOR_POTENCIAL = "PROVEEDOR_POTENCIAL"
+    USUARIO_ADMINISTRATIVO = "USUARIO_ADMINISTRATIVO"
+    CANDIDATO_A_EMPLEO = "CANDIDATO_A_EMPLEO"

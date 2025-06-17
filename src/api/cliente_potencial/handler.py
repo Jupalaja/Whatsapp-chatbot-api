@@ -4,26 +4,28 @@ from typing import Optional, Tuple
 import google.genai as genai
 from google.genai import types
 
-from ...model.constants import GEMINI_MODEL
 from .prompts import (
     CLIENTE_POTENCIAL_SYSTEM_PROMPT,
     PROMPT_AGENCIAMIENTO_DE_CARGA,
-    PROMPT_DISCARD_PERSONA_NATURAL
+    PROMPT_DISCARD_PERSONA_NATURAL,
 )
 from .tools import (
     is_persona_natural,
     needs_freight_forwarder,
     search_nit,
 )
-from ...model.global_tools import (get_human_help)
-from ...schemas import InteractionMessage
-from .history import get_genai_history, genai_content_to_interaction_messages
 from .state import ClientePotencialState
+
+from src.shared.constants import GEMINI_MODEL
+from src.shared.tools import get_human_help
+from src.shared.schemas import InteractionMessage
+from src.shared.enums import InteractionType
+from src.shared.utils.history import get_genai_history, genai_content_to_interaction_messages
 
 logger = logging.getLogger(__name__)
 
 
-async def handle_interaction(
+async def handle(
     session_id: str,
     history_messages: list[InteractionMessage],
     current_state: ClientePotencialState,
@@ -143,7 +145,7 @@ async def handle_interaction(
         next_state = ClientePotencialState.HUMAN_ESCALATION
 
     assistant_message = InteractionMessage(
-        type='assistant', message=assistant_message_text
+        type=InteractionType.ASSISTANT, message=assistant_message_text
     )
 
     return [assistant_message], next_state, tool_call_name

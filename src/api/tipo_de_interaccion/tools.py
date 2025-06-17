@@ -1,10 +1,5 @@
 from typing import List
-from ..schemas import CategoriaPuntuacion
-
-
-def get_human_help():
-    """Use this function when the user explicitly asks for human help or to talk to a human."""
-    return "A human will be with you shortly."
+from src.shared.schemas import CategoriaPuntuacion
 
 
 def clasificar_interaccion(

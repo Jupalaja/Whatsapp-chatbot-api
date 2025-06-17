@@ -21,9 +21,8 @@ if config.config_file_name is not None:
 # This allows Alembic to find your application's modules.
 sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.config import settings
-from src.db import Base
-from src import models
+from src import settings
+from src import Base
 
 # Your models' MetaData object for 'autogenerate' support
 target_metadata = Base.metadata
