@@ -78,7 +78,7 @@ async def handle_cliente_potencial(
 
     if not response.function_calls:
         if current_state == ClientePotencialState.AWAITING_REMAINING_INFORMATION:
-            next_state = ClientePotencialState.CUSTOMER_DISCARDED
+            next_state = ClientePotencialState.CONVERSATION_FINISHED
             assistant_message_text = PROMPT_DISCARD_PERSONA_NATURAL
         else:
             assistant_message_text = response.text
@@ -119,7 +119,7 @@ async def handle_cliente_potencial(
             assistant_message_text = get_human_help()
             tool_call_name = 'get_human_help'
         elif 'needs_freight_forwarder' in tool_results:
-            next_state = ClientePotencialState.CUSTOMER_DISCARDED
+            next_state = ClientePotencialState.CONVERSATION_FINISHED
             assistant_message_text = PROMPT_AGENCIAMIENTO_DE_CARGA
             tool_call_name = 'needs_freight_forwarder'
         else:
