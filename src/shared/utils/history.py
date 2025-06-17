@@ -22,18 +22,12 @@ async def get_genai_history(
     """
     genai_history = []
     for msg in history_messages:
-        role = "user"
-        if msg.type == InteractionType.ASSISTANT:
-            role = "model"
-        elif msg.type == InteractionType.TOOL:
-            role = "tool"
-
         try:
             parts_data = json.loads(msg.message)
             parts = [types.Part.model_validate(p) for p in parts_data]
         except (json.JSONDecodeError, TypeError, ValidationError):
             parts = [types.Part(text=msg.message)]
-        genai_history.append(types.Content(role=role, parts=parts))
+        genai_history.append(types.Content(role=msg.role, parts=parts))
     return genai_history
 
 
@@ -52,17 +46,15 @@ def genai_content_to_interaction_messages(
     """
     messages = []
     for content in history:
-        role: InteractionType = InteractionType.USER
-        if content.role == "model":
-            role = InteractionType.ASSISTANT
-        elif content.role == "tool":
-            role = InteractionType.TOOL
-
         if len(content.parts) == 1 and content.parts[0].text is not None:
             message_str = content.parts[0].text
         else:
             parts_json_list = [p.model_dump(exclude_none=True) for p in content.parts]
             message_str = json.dumps(parts_json_list)
 
-        messages.append(InteractionMessage(type=role, message=message_str))
+        messages.append(
+            InteractionMessage(
+                role=InteractionType(content.role), message=message_str
+            )
+        )
     return messages

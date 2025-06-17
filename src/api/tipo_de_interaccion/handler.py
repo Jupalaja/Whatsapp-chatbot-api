@@ -72,17 +72,17 @@ async def handle_tipo_de_interaccion(
             logger.info("User requires human help")
             assistant_text = get_human_help()
             assistant_message = InteractionMessage(
-                type=InteractionType.ASSISTANT, message=assistant_text
+                role=InteractionType.MODEL, message=assistant_text
             )
 
     if response_chat.text and not assistant_message:
         assistant_message = InteractionMessage(
-            type=InteractionType.ASSISTANT, message=response_chat.text
+            role=InteractionType.MODEL, message=response_chat.text
         )
 
     if not assistant_message:
         assistant_message = InteractionMessage(
-            type=InteractionType.ASSISTANT,
+            role=InteractionType.MODEL,
             message="No he podido procesar tu solicitud. Un humano te ayudará.",
         )
         tool_call_name = "get_human_help"

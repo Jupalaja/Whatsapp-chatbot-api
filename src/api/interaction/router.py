@@ -6,11 +6,12 @@ from google.genai import errors, types
 
 from src.database import models
 from src.database.db import get_db
-from src.shared.schemas import InteractionType
+from src.shared.enums import InteractionType
 from src.shared.constants import GEMINI_MODEL
 from src.shared.prompts import CONTACTO_BASE_SYSTEM_PROMPT
 from src.shared.tools import get_human_help
 from src.shared.schemas import InteractionRequest, InteractionResponse, InteractionMessage
+from src.shared.utils.history import get_genai_history
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -44,13 +45,7 @@ async def handle_interaction(
     try:
         model = GEMINI_MODEL
 
-        genai_history = []
-        for msg in history_messages:
-            # The 'assistant' role from the API maps to the 'model' role in the genai library
-            role = "user" if msg.type == InteractionType.USER else "model"
-            genai_history.append(
-                types.Content(role=role, parts=[types.Part(text=msg.message)])
-            )
+        genai_history = await get_genai_history(history_messages)
 
         tools = [get_human_help]
         config = types.GenerateContentConfig(
@@ -77,12 +72,12 @@ async def handle_interaction(
                 )
                 assistant_text = get_human_help()
                 assistant_message = InteractionMessage(
-                    type=InteractionType.ASSISTANT, message=assistant_text
+                    role=InteractionType.MODEL, message=assistant_text
                 )
 
         if response.text and not assistant_message:
             assistant_message = InteractionMessage(
-                type=InteractionType.ASSISTANT,
+                role=InteractionType.MODEL,
                 message=response.text,
             )
 

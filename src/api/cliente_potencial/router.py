@@ -39,7 +39,7 @@ async def handle(
 
     if not history_messages:
         assistant_message = InteractionMessage(
-            type=InteractionType.ASSISTANT,
+            role=InteractionType.MODEL,
             message=PROMPT_ASK_FOR_NIT,
         )
         history_messages.append(assistant_message)

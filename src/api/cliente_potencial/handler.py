@@ -145,7 +145,7 @@ async def handle_cliente_potencial(
         next_state = ClientePotencialState.HUMAN_ESCALATION
 
     assistant_message = InteractionMessage(
-        type=InteractionType.ASSISTANT, message=assistant_message_text
+        role=InteractionType.MODEL, message=assistant_message_text
     )
 
     return [assistant_message], next_state, tool_call_name

@@ -44,7 +44,7 @@ async def handle(
     history_messages.append(interaction_request.message)
 
     user_message_count = sum(
-        1 for msg in history_messages if msg.type == InteractionType.USER
+        1 for msg in history_messages if msg.role == InteractionType.USER
     )
 
     if user_message_count >= TIPO_DE_INTERACCION_MESSAGES_UNTIL_HUMAN:
@@ -52,7 +52,7 @@ async def handle(
             f"User with sessionId {interaction_request.sessionId} has sent more than {TIPO_DE_INTERACCION_MESSAGES_UNTIL_HUMAN} messages. Activating human help tool."
         )
         assistant_message = InteractionMessage(
-            type=InteractionType.ASSISTANT,
+            role=InteractionType.MODEL,
             message="OK. A human will be with you shortly.\n",
         )
         history_messages.append(assistant_message)

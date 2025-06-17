@@ -18,7 +18,7 @@ class HealthResponse(BaseModel):
 
 
 class InteractionMessage(BaseModel):
-    type: InteractionType
+    role: InteractionType
     message: str
 
 

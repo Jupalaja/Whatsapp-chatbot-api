@@ -3,7 +3,7 @@ from enum import Enum
 
 class InteractionType(str, Enum):
     USER = "user"
-    ASSISTANT = "assistant"
+    MODEL = "model"
     TOOL = "tool"
 
 
