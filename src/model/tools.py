@@ -41,13 +41,14 @@ def search_nit(nit: str):
             "responsable_comercial": "No encontrado",
         }
 
+
 def is_persona_natural():
-    """Se debe llamar cuando el usuario indica que no es una empresa."""
+    """Se debe llamar cuando el usuario indica que no es una empresa, por ejemplo si dice 'soy persona natural' o 'no tengo NIT'."""
     # This is a dummy function for schema generation for the model.
     return True
 
 
 def needs_freight_forwarder():
-    """Se debe llamar si la persona natural está interesada en agenciamiento de carga."""
+    """Se debe llamar si la persona natural indica que SÍ está interesada en agenciamiento de carga. Usar solo cuando la persona confirma que necesita un 'agente de carga' o que necesita 'agenciamiento de carga' o un 'freight forwarder'."""
     # This is a dummy function for schema generation for the model.
     return True

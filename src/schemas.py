@@ -12,7 +12,7 @@ class HealthResponse(BaseModel):
     db_connection: str
 
 class InteractionMessage(BaseModel):
-    type: Literal["user", "assistant"]
+    type: Literal["user", "assistant", "tool"]
     message: str
 
 class InteractionRequest(BaseModel):
