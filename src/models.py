@@ -13,4 +13,4 @@ class Interaction(Base):
 
     session_id = Column(String, primary_key=True, index=True)
     messages = Column(JSONB, nullable=False)
-
+    state = Column(String(50), nullable=True)
