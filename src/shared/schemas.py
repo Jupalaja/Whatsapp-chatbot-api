@@ -1,7 +1,7 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Literal, Optional
 
-from src.shared.enums import CategoriaClasificacion, InteractionType
+from src.shared.enums import InteractionType
 
 
 class ChatRequest(BaseModel):
@@ -33,8 +33,18 @@ class InteractionResponse(BaseModel):
     toolCall: Optional[str] = None
 
 
+CategoriaClasificacionLiteral = Literal[
+    "CLIENTE_POTENCIAL",
+    "CLIENTE_ACTIVO",
+    "TRANSPORTISTA_TERCERO",
+    "PROVEEDOR_POTENCIAL",
+    "USUARIO_ADMINISTRATIVO",
+    "CANDIDATO_A_EMPLEO",
+]
+
+
 class CategoriaPuntuacion(BaseModel):
-    categoria: CategoriaClasificacion
+    categoria: CategoriaClasificacionLiteral
     puntuacionDeConfianza: float
     razonamiento: str
     indicadoresClave: List[str]
@@ -42,8 +52,8 @@ class CategoriaPuntuacion(BaseModel):
 
 class Clasificacion(BaseModel):
     puntuacionesPorCategoria: List[CategoriaPuntuacion]
-    clasificacionPrimaria: str
-    clasificacionesAlternativas: List[str]
+    clasificacionPrimaria: CategoriaClasificacionLiteral
+    clasificacionesAlternativas: List[CategoriaClasificacionLiteral]
 
 
 class TipoDeInteraccionResponse(InteractionResponse):

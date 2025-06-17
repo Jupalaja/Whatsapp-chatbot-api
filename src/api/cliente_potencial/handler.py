@@ -25,7 +25,7 @@ from src.shared.utils.history import get_genai_history, genai_content_to_interac
 logger = logging.getLogger(__name__)
 
 
-async def handle(
+async def handle_cliente_potencial(
     session_id: str,
     history_messages: list[InteractionMessage],
     current_state: ClientePotencialState,

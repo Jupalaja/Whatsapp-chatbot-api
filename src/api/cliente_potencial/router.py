@@ -6,7 +6,7 @@ from google.genai import errors
 
 from .prompts import PROMPT_ASK_FOR_NIT
 from .state import ClientePotencialState
-from .handler import handle
+from .handler import handle_cliente_potencial
 
 from src.database import models
 from src.database.db import get_db
@@ -61,7 +61,7 @@ async def handle(
             new_assistant_messages,
             next_state,
             tool_call_name,
-        ) = await handle(
+        ) = await handle_cliente_potencial(
             session_id=interaction_request.sessionId,
             history_messages=history_messages,
             current_state=current_state,

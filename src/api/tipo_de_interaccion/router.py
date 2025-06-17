@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import google.genai as genai
 from google.genai import errors
 
-from .handler import handle
+from .handler import handle_tipo_de_interaccion as handle_tipo_de_interaccion
 
 from src.database import models
 from src.database.db import get_db
@@ -79,7 +79,7 @@ async def handle(
             new_assistant_messages,
             clasificacion,
             tool_call_name,
-        ) = await handle(
+        ) = await handle_tipo_de_interaccion(
             history_messages=history_messages,
             client=client,
         )

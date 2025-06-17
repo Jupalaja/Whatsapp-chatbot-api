@@ -18,7 +18,7 @@ from src.shared.utils.history import get_genai_history
 logger = logging.getLogger(__name__)
 
 
-async def handle(
+async def handle_tipo_de_interaccion(
     history_messages: list[InteractionMessage],
     client: genai.Client,
 ) -> Tuple[list[InteractionMessage], Optional[Clasificacion], Optional[str]]:
