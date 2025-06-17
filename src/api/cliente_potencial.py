@@ -8,7 +8,12 @@ from .. import models
 from ..db import get_db
 from ..model.constants import GEMINI_MODEL
 from ..model.prompts import CLIENTE_POTENCIAL_SYSTEM_PROMPT
-from ..model.tools import get_human_help
+from ..model.tools import (
+    get_human_help,
+    is_persona_natural,
+    search_nit,
+    needs_freight_forwarder,
+)
 from ..schemas import InteractionRequest, InteractionResponse, InteractionMessage
 
 router = APIRouter()
@@ -28,30 +33,33 @@ async def handle(
     """
     client: genai.Client = request.app.state.genai_client
 
-    # Get interaction from DB
+    # Step 1: Retrieve existing conversation history from the database.
     interaction = await db.get(models.Interaction, interaction_request.sessionId)
 
     history_messages = []
     if interaction:
+        # Load previous messages if a session exists.
         history_messages = [
             InteractionMessage.model_validate(msg) for msg in interaction.messages
         ]
 
-    # Append new user message
+    # Step 2: Append the new user message to the history for this turn.
     history_messages.append(interaction_request.message)
 
     try:
         model = GEMINI_MODEL
 
-        genai_history = []
-        for msg in history_messages:
-            # The 'assistant' role from the API maps to the 'model' role in the genai library
-            role = "user" if msg.type == "user" else "model"
-            genai_history.append(
-                types.Content(role=role, parts=[types.Part(text=msg.message)])
+        # Step 3: Prepare the full conversation history for the Gemini API call.
+        # This ensures the model has context of the entire conversation.
+        genai_history = [
+            types.Content(
+                role="user" if msg.type == "user" else "model",
+                parts=[types.Part(text=msg.message)],
             )
+            for msg in history_messages
+        ]
 
-        tools = [get_human_help]
+        tools = [get_human_help, search_nit, is_persona_natural, needs_freight_forwarder]
         config = types.GenerateContentConfig(
             tools=tools,
             system_instruction=CLIENTE_POTENCIAL_SYSTEM_PROMPT,
@@ -60,6 +68,7 @@ async def handle(
             ),
         )
 
+        # Step 4: Call the model with the complete history.
         response = await client.aio.models.generate_content(
             model=model, contents=genai_history, config=config
         )
@@ -69,6 +78,7 @@ async def handle(
 
         if response.function_calls:
             function_call = response.function_calls[0]
+            # TODO: Implement tool call handling for search_nit, is_persona_natural, and needs_freight_forwarder
             if function_call.name == "get_human_help":
                 tool_call_name = function_call.name
                 logger.info(
@@ -85,10 +95,11 @@ async def handle(
                 message=response.text,
             )
 
+        # Step 5: Append the assistant's response to the history for persistence.
         if assistant_message:
             history_messages.append(assistant_message)
 
-        # Upsert interaction
+        # Step 6: Save the updated conversation history back to the database.
         if interaction:
             interaction.messages = [msg.model_dump() for msg in history_messages]
         else:
