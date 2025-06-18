@@ -4,7 +4,7 @@ from typing import Optional, Tuple
 import google.genai as genai
 
 from .state import ClientePotencialState
-from .workflows import (
+from .conversation_flow import (
     handle_conversation_finished,
     handle_in_progress_conversation,
 )
@@ -48,7 +48,6 @@ async def handle_cliente_potencial(
         return await handle_conversation_finished(
             session_id=session_id,
             history_messages=history_messages,
-            current_state=current_state,
             interaction_data=interaction_data,
             client=client,
         )
