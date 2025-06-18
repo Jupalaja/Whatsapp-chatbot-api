@@ -11,7 +11,7 @@ from .state import ClientePotencialState
 from .workflows import (
     _workflow_awaiting_nit,
     _workflow_awaiting_persona_natural_freight_info,
-    _workflow_awaiting_remaining_information
+    _workflow_awaiting_remaining_information,
 )
 
 from src.shared.constants import GEMINI_MODEL, MESSAGES_AFTER_CONVERSATION_FINISHED
@@ -86,6 +86,7 @@ async def handle_conversation_finished(
     )
 
     return [assistant_message], next_state, tool_call_name, interaction_data
+
 
 async def handle_in_progress_conversation(
     history_messages: list[InteractionMessage],

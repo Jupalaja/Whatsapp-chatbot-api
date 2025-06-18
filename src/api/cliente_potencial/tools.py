@@ -1,3 +1,6 @@
+from src.shared.enums import TipoDeServicio
+
+
 def search_nit(nit: str):
     """Busca información de una empresa por su NIT."""
     if nit == "901535329":
@@ -27,4 +30,37 @@ def is_persona_natural():
 
 def needs_freight_forwarder():
     """Se debe llamar si la persona natural indica que SÍ está interesada en agenciamiento de carga. Usar solo cuando la persona confirma que necesita un 'agente de carga' o que necesita 'agenciamiento de carga' o un 'freight forwarder'."""
+    return True
+
+
+def get_informacion_cliente_potencial(
+    nombre_legal: str,
+    nombre_persona_contacto: str,
+    correo: str,
+    telefono: str,
+    tipo_de_servicio: str,
+    tipo_mercancia: str,
+    detalles_mercancia: str,
+    ciudad_origen: str,
+    ciudad_destino: str,
+    promedio_viajes_mensuales: int,
+):
+    """
+    Se debe llamar a esta función SOLO cuando se haya recopilado TODA la información
+    requerida del cliente. Esta función guarda los detalles del cliente potencial.
+    La información requerida es: nombre_legal, nombre_persona_contacto, correo, telefono,
+    tipo_de_servicio, tipo_mercancia, detalles_mercancia, ciudad_origen, ciudad_destino,
+    y promedio_viajes_mensuales.
+    """
+    TipoDeServicio(tipo_de_servicio)
+    return locals()
+
+
+def is_valid_item(tipo_mercancia: str):
+    """Valida si el tipo de mercancía es transportable. Por ahora, siempre retorna True."""
+    return True
+
+
+def is_valid_city(ciudad: str):
+    """Valida si una ciudad es un origen/destino válido. Por ahora, siempre retorna True."""
     return True
