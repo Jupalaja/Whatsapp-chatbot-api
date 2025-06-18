@@ -81,11 +81,12 @@ def get_informacion_cliente_potencial(
     promedio_viajes_mensuales: int,
 ):
     """
-    Se debe llamar a esta función SOLO cuando se haya recopilado TODA la información
+    Se debe llamar a esta función cuando se haya recopilado la información
     requerida del cliente. Esta función guarda los detalles del cliente potencial.
     La información requerida es: nombre_legal, nombre_persona_contacto, correo, telefono,
     tipo_de_servicio, tipo_mercancia, detalles_mercancia, ciudad_origen, ciudad_destino,
-    y promedio_viajes_mensuales.
+    y promedio_viajes_mensuales. No esperes una confirmación del cliente para llamar esta
+    función, con tener la información suficiente basta.
     """
     TipoDeServicio(tipo_de_servicio)
     return locals()
