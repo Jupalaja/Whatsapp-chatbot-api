@@ -8,18 +8,21 @@ def search_nit(nit: str):
             "cliente": "Elevva Colombia S.A.S.",
             "estado": "PERDIDO_2_ANOS",
             "responsable_comercial": "TEGUA SIERRA DEISSY ROCIO",
+            "telefono": "3057797223"
         }
     elif nit == "901534449":
         return {
             "cliente": "Insumos & Ingeniería S.A.S",
-            "estado": "NUEVO",
+            "estado": "PERDIDO",
             "responsable_comercial": "CORTES LEON KEVIN DAVID",
+            "telefono": "3146694888"
         }
     else:
         return {
             "cliente": "No encontrado",
             "estado": "No encontrado",
             "responsable_comercial": "No encontrado",
+            "telefono": "No encontrado"
         }
 
 
