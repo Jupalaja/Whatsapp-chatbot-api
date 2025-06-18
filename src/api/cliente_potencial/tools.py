@@ -1,6 +1,38 @@
 from src.shared.enums import TipoDeServicio
 
 
+def inferir_tipo_de_servicio(descripcion_servicio: str) -> str:
+    """
+    Infiere el tipo de servicio logístico formal a partir de una descripción en lenguaje natural.
+    Utiliza esta función para convertir la descripción del servicio del usuario en un valor válido del enumerado TipoDeServicio ANTES de llamar a get_informacion_cliente_potencial.
+    Por ejemplo, si un usuario dice 'transporte de maquinaria', esta función podría devolver 'DISTRIBUCION'.
+
+    Args:
+        descripcion_servicio: La descripción del servicio proporcionada por el usuario.
+
+    Returns:
+        Un valor válido del enumerado TipoDeServicio.
+    """
+    descripcion_lower = descripcion_servicio.lower()
+    if "importacion" in descripcion_lower or "importar" in descripcion_lower:
+        return TipoDeServicio.IMPORTACION.value
+    if "exportacion" in descripcion_lower or "exportar" in descripcion_lower:
+        return TipoDeServicio.EXPORTACION.value
+    if "almacenamiento" in descripcion_lower or "guardar" in descripcion_lower:
+        return TipoDeServicio.ALMACENAMIENTO.value
+    if "itr" in descripcion_lower:
+        return TipoDeServicio.ITR.value
+    # Default to distribution if it involves moving stuff
+    if (
+        "distribucion" in descripcion_lower
+        or "transporte" in descripcion_lower
+        or "mover" in descripcion_lower
+    ):
+        return TipoDeServicio.DISTRIBUCION.value
+    # Fallback if no keywords match. This shouldn't happen often with a good model.
+    return TipoDeServicio.DISTRIBUCION.value
+
+
 def search_nit(nit: str):
     """Busca información de una empresa por su NIT."""
     if nit == "901535329":
@@ -60,10 +92,10 @@ def get_informacion_cliente_potencial(
 
 
 def is_valid_item(tipo_mercancia: str):
-    """Valida si el tipo de mercancía es transportable. Por ahora, siempre retorna True."""
+    """Válida si el tipo de mercancía es transportable. Por ahora, siempre retorna True."""
     return True
 
 
 def is_valid_city(ciudad: str):
-    """Valida si una ciudad es un origen/destino válido. Por ahora, siempre retorna True."""
+    """Válida si una ciudad es un origen/destino válido. Por ahora, siempre retorna True."""
     return True
