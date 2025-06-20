@@ -107,7 +107,7 @@ def inferir_tipo_de_servicio(tipo_de_servicio: str) -> str:
     return TipoDeServicio(tipo_de_servicio).value
 
 
-def search_nit(nit: str):
+def buscar_nit(nit: str):
     """Busca información de una empresa por su NIT."""
     if nit == "901535329":
         return {
@@ -132,17 +132,17 @@ def search_nit(nit: str):
         }
 
 
-def is_persona_natural():
+def es_persona_natural():
     """Se debe llamar cuando el usuario indica que no es una empresa, por ejemplo si dice 'soy persona natural' o 'no tengo NIT'."""
     return True
 
 
-def needs_freight_forwarder():
+def necesita_agente_de_carga():
     """Se debe llamar si la persona natural indica que SÍ está interesada en agenciamiento de carga. Usar solo cuando la persona confirma que necesita un 'agente de carga' o que necesita 'agenciamiento de carga' o un 'freight forwarder'."""
     return True
 
 
-def get_informacion_cliente_potencial(
+def obtener_informacion_cliente_potencial(
     nombre_legal: str,
     nombre_persona_contacto: str,
     correo: str,
@@ -167,7 +167,7 @@ def get_informacion_cliente_potencial(
     return locals()
 
 
-def is_valid_item(tipo_mercancia: str):
+def es_mercancia_valida(tipo_mercancia: str):
     """
     Válida si el tipo de mercancía y servicio asociado son transportables por Botero Soto.
     Devuelve True si es válido, o un mensaje de error si no lo es.
@@ -184,7 +184,7 @@ def is_valid_item(tipo_mercancia: str):
     return True
 
 
-def is_valid_city(ciudad: str):
+def es_ciudad_valida(ciudad: str):
     """
     Válida si una ciudad es un origen/destino válido. Si no es válido, retorna un mensaje para el usuario.
     """
@@ -194,15 +194,11 @@ def is_valid_city(ciudad: str):
     return True
 
 
-def customer_requested_email():
-    """
-    Se debe llamar a esta función cuando el usuario indica que prefiere enviar la información por correo electrónico en lugar de proporcionarla en el chat.
-    """
+def cliente_solicito_correo():
+    """Se debe llamar a esta función cuando el usuario indica que prefiere enviar la información por correo electrónico en lugar de proporcionarla en el chat."""
     return True
 
 
-def save_customer_email(email: str):
-    """
-    Se debe llamar a esta función para guardar el correo electrónico del cliente cuando este lo proporciona después de haber solicitado enviarlo por correo.
-    """
+def guardar_correo_cliente(email: str):
+    """Se debe llamar a esta función para guardar el correo electrónico del cliente cuando este lo proporciona después de haber solicitado enviarlo por correo."""
     return email

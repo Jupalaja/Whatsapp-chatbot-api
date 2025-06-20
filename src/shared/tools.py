@@ -1,3 +1,3 @@
-def get_human_help():
-    """Use this function when the user explicitly asks for human help or to talk to a human."""
-    return "A human will be with you shortly."
+def obtener_ayuda_humana():
+    """Utiliza esta función cuando el usuario solicite explícitamente ayuda humana o hablar con un humano."""
+    return "Un humano te atenderá en breve."

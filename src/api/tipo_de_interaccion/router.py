@@ -15,6 +15,7 @@ from src.shared.schemas import (
     InteractionRequest,
     TipoDeInteraccionResponse,
 )
+from src.shared.tools import obtener_ayuda_humana
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -53,7 +54,7 @@ async def handle(
         )
         assistant_message = InteractionMessage(
             role=InteractionType.MODEL,
-            message="OK. A human will be with you shortly.\n",
+            message=obtener_ayuda_humana(),
         )
         history_messages.append(assistant_message)
 
@@ -70,7 +71,7 @@ async def handle(
         return TipoDeInteraccionResponse(
             sessionId=interaction_request.sessionId,
             messages=[assistant_message],
-            toolCall="get_human_help",
+            toolCall="obtener_ayuda_humana",
             clasificacion=None,
             state=interaction.state,
         )

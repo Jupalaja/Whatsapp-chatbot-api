@@ -16,7 +16,7 @@ from .workflows import (
 )
 
 from src.shared.constants import GEMINI_MODEL, MESSAGES_AFTER_CONVERSATION_FINISHED
-from src.shared.tools import get_human_help
+from src.shared.tools import obtener_ayuda_humana
 from src.shared.schemas import InteractionMessage
 from src.shared.enums import InteractionType
 from src.shared.utils.history import get_genai_history
@@ -40,8 +40,8 @@ async def handle_conversation_finished(
         logger.info(
             f"User with sessionId {session_id} has sent more than {MESSAGES_AFTER_CONVERSATION_FINISHED} messages. Activating human help tool."
         )
-        assistant_message_text = get_human_help()
-        tool_call_name = "get_human_help"
+        assistant_message_text = obtener_ayuda_humana()
+        tool_call_name = "obtener_ayuda_humana"
         next_state = ClientePotencialState.HUMAN_ESCALATION
         assistant_message = InteractionMessage(
             role=InteractionType.MODEL, message=assistant_message_text
@@ -51,7 +51,7 @@ async def handle_conversation_finished(
     genai_history = await get_genai_history(history_messages)
 
     autopilot_config = types.GenerateContentConfig(
-        tools=[get_human_help],
+        tools=[obtener_ayuda_humana],
         system_instruction=CLIENTE_POTENCIAL_AUTOPILOT_SYSTEM_PROMPT,
         temperature=0.0,
         automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
@@ -67,10 +67,10 @@ async def handle_conversation_finished(
 
     if (
         response.function_calls
-        and response.function_calls[0].name == "get_human_help"
+        and response.function_calls[0].name == "obtener_ayuda_humana"
     ):
-        tool_call_name = "get_human_help"
-        assistant_message_text = get_human_help()
+        tool_call_name = "obtener_ayuda_humana"
+        assistant_message_text = obtener_ayuda_humana()
         next_state = ClientePotencialState.HUMAN_ESCALATION
     else:
         assistant_message_text = response.text
@@ -79,7 +79,7 @@ async def handle_conversation_finished(
         assistant_message_text = (
             "I'm not sure how to help with that. Would you like to talk to a human agent?"
         )
-        tool_call_name = "get_human_help"
+        tool_call_name = "obtener_ayuda_humana"
         next_state = ClientePotencialState.HUMAN_ESCALATION
 
     assistant_message = InteractionMessage(
@@ -119,8 +119,8 @@ async def handle_in_progress_conversation(
     logger.warning(
         f"Unhandled in-progress state: {current_state}. Escalating to human."
     )
-    assistant_message_text = get_human_help()
-    tool_call_name = "get_human_help"
+    assistant_message_text = obtener_ayuda_humana()
+    tool_call_name = "obtener_ayuda_humana"
     next_state = ClientePotencialState.HUMAN_ESCALATION
     assistant_message = InteractionMessage(
         role=InteractionType.MODEL, message=assistant_message_text

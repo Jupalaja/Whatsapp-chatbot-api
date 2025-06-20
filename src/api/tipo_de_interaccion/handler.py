@@ -10,7 +10,7 @@ from .tools import clasificar_interaccion
 from src.shared.enums import InteractionType
 from src.shared.constants import GEMINI_MODEL
 from src.shared.prompts import CONTACTO_BASE_SYSTEM_PROMPT
-from src.shared.tools import get_human_help
+from src.shared.tools import obtener_ayuda_humana
 from src.shared.schemas import Clasificacion, InteractionMessage
 from src.shared.utils.history import get_genai_history
 
@@ -57,7 +57,7 @@ async def handle_tipo_de_interaccion(
     tool_call_name = None
 
     chat_config = types.GenerateContentConfig(
-        tools=[get_human_help],
+        tools=[obtener_ayuda_humana],
         system_instruction=CONTACTO_BASE_SYSTEM_PROMPT,
         automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
     )
@@ -67,10 +67,10 @@ async def handle_tipo_de_interaccion(
 
     if response_chat.function_calls:
         function_call = response_chat.function_calls[0]
-        if function_call.name == "get_human_help":
+        if function_call.name == "obtener_ayuda_humana":
             tool_call_name = function_call.name
             logger.info("User requires human help")
-            assistant_text = get_human_help()
+            assistant_text = obtener_ayuda_humana()
             assistant_message = InteractionMessage(
                 role=InteractionType.MODEL, message=assistant_text
             )
@@ -85,6 +85,6 @@ async def handle_tipo_de_interaccion(
             role=InteractionType.MODEL,
             message="No he podido procesar tu solicitud. Un humano te ayudará.",
         )
-        tool_call_name = "get_human_help"
+        tool_call_name = "obtener_ayuda_humana"
 
     return [assistant_message], clasificacion, tool_call_name

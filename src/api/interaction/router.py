@@ -9,7 +9,7 @@ from src.database.db import get_db
 from src.shared.enums import InteractionType
 from src.shared.constants import GEMINI_MODEL
 from src.shared.prompts import CONTACTO_BASE_SYSTEM_PROMPT
-from src.shared.tools import get_human_help
+from src.shared.tools import obtener_ayuda_humana
 from src.shared.schemas import InteractionRequest, InteractionResponse, InteractionMessage
 from src.shared.utils.history import get_genai_history
 
@@ -47,7 +47,7 @@ async def handle_interaction(
 
         genai_history = await get_genai_history(history_messages)
 
-        tools = [get_human_help]
+        tools = [obtener_ayuda_humana]
         config = types.GenerateContentConfig(
             tools=tools,
             system_instruction=CONTACTO_BASE_SYSTEM_PROMPT,
@@ -65,12 +65,12 @@ async def handle_interaction(
 
         if response.function_calls:
             function_call = response.function_calls[0]
-            if function_call.name == "get_human_help":
+            if function_call.name == "obtener_ayuda_humana":
                 tool_call_name = function_call.name
                 logger.info(
                     f"The user with sessionId: {interaction_request.sessionId} requires human help"
                 )
-                assistant_text = get_human_help()
+                assistant_text = obtener_ayuda_humana()
                 assistant_message = InteractionMessage(
                     role=InteractionType.MODEL, message=assistant_text
                 )

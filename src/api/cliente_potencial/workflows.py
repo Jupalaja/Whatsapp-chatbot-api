@@ -19,22 +19,22 @@ from .prompts import (
 )
 from .state import ClientePotencialState
 from .tools import (
-    customer_requested_email,
+    cliente_solicito_correo,
     es_solicitud_de_mudanza,
     es_solicitud_de_paqueteo,
-    get_informacion_cliente_potencial,
+    obtener_informacion_cliente_potencial,
     inferir_tipo_de_servicio,
-    is_persona_natural,
-    is_valid_city,
-    is_valid_item,
-    needs_freight_forwarder,
-    save_customer_email,
-    search_nit,
+    es_persona_natural,
+    es_ciudad_valida,
+    es_mercancia_valida,
+    necesita_agente_de_carga,
+    guardar_correo_cliente,
+    buscar_nit,
 )
 from src.shared.constants import GEMINI_MODEL
 from src.shared.enums import InteractionType
 from src.shared.schemas import InteractionMessage
-from src.shared.tools import get_human_help
+from src.shared.tools import obtener_ayuda_humana
 from src.shared.utils.history import (
     genai_content_to_interaction_messages,
     get_genai_history,
@@ -96,7 +96,7 @@ async def _workflow_remaining_information_provided(
     Handles the logic after all client information has been provided and stored.
     It determines the next step based on the client's existing status.
     """
-    search_result = interaction_data.get("search_nit_result", {})
+    search_result = interaction_data.get("resultado_buscar_nit", {})
     estado = search_result.get("estado")
     assistant_message_text = ""
     tool_call_name = None
@@ -104,7 +104,7 @@ async def _workflow_remaining_information_provided(
 
     if estado == "PROSPECTO":
         assistant_message_text = PROMPT_ASIGNAR_AGENTE_COMERCIAL
-        tool_call_name = "get_human_help"
+        tool_call_name = "obtener_ayuda_humana"
     elif estado in ["PERDIDO", "PERDIDO_2_ANOS"]:
         responsable = search_result.get("responsable_comercial")
         telefono = search_result.get("telefono")
@@ -115,10 +115,10 @@ async def _workflow_remaining_information_provided(
             )
         else:  # Fallback if contact info is missing
             assistant_message_text = PROMPT_ASIGNAR_AGENTE_COMERCIAL
-            tool_call_name = "get_human_help"
+            tool_call_name = "obtener_ayuda_humana"
     else:  # New client or any other status
         assistant_message_text = PROMPT_ASIGNAR_AGENTE_COMERCIAL
-        tool_call_name = "get_human_help"
+        tool_call_name = "obtener_ayuda_humana"
 
     interaction_data["messages_after_finished_count"] = 0
     return (
@@ -139,7 +139,7 @@ async def _workflow_awaiting_nit(
     client: genai.Client,
 ) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str], dict]:
     """Handles the workflow when the assistant is waiting for the user's NIT."""
-    tools = [search_nit, is_persona_natural, get_human_help]
+    tools = [buscar_nit, es_persona_natural, obtener_ayuda_humana]
     config = types.GenerateContentConfig(
         tools=tools,
         system_instruction=CLIENTE_POTENCIAL_SYSTEM_PROMPT,
@@ -188,20 +188,20 @@ async def _workflow_awaiting_nit(
             genai_content_to_interaction_messages([tool_turn_content])
         )
 
-        if "get_human_help" in tool_results:
+        if "obtener_ayuda_humana" in tool_results:
             return (
                 [
                     InteractionMessage(
-                        role=InteractionType.MODEL, message=get_human_help()
+                        role=InteractionType.MODEL, message=obtener_ayuda_humana()
                     )
                 ],
                 ClientePotencialState.HUMAN_ESCALATION,
-                "get_human_help",
+                "obtener_ayuda_humana",
                 interaction_data,
             )
 
-        if "search_nit" in tool_results:
-            interaction_data["search_nit_result"] = tool_results["search_nit"]
+        if "buscar_nit" in tool_results:
+            interaction_data["resultado_buscar_nit"] = tool_results["buscar_nit"]
             assistant_message_text = await _get_final_text_response(
                 history_messages, client, CLIENTE_POTENCIAL_GATHER_INFO_SYSTEM_PROMPT
             )
@@ -216,7 +216,7 @@ async def _workflow_awaiting_nit(
                 interaction_data,
             )
 
-        if "is_persona_natural" in tool_results:
+        if "es_persona_natural" in tool_results:
             assistant_message_text = await _get_final_text_response(
                 history_messages, client, CLIENTE_POTENCIAL_SYSTEM_PROMPT
             )
@@ -238,7 +238,7 @@ async def _workflow_awaiting_persona_natural_freight_info(
     client: genai.Client,
 ) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str], dict]:
     """Handles the workflow when waiting for freight info from a natural person."""
-    tools = [needs_freight_forwarder, get_human_help]
+    tools = [necesita_agente_de_carga, obtener_ayuda_humana]
     genai_history = await get_genai_history(history_messages)
     config = types.GenerateContentConfig(
         tools=tools,
@@ -252,11 +252,11 @@ async def _workflow_awaiting_persona_natural_freight_info(
 
     if (
         response.function_calls
-        and response.function_calls[0].name == "needs_freight_forwarder"
+        and response.function_calls[0].name == "necesita_agente_de_carga"
     ):
         assistant_message_text = PROMPT_AGENCIAMIENTO_DE_CARGA
         next_state = ClientePotencialState.CONVERSATION_FINISHED
-        tool_call_name = "needs_freight_forwarder"
+        tool_call_name = "necesita_agente_de_carga"
         interaction_data["messages_after_finished_count"] = 0
     else:
         # If no tool call or a different one, we assume they don't need it.
@@ -280,14 +280,14 @@ async def _workflow_awaiting_remaining_information(
 ) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str], dict]:
     """Handles the workflow for gathering detailed information from a potential client."""
     tools = [
-        get_informacion_cliente_potencial,
-        is_valid_item,
-        is_valid_city,
+        obtener_informacion_cliente_potencial,
+        es_mercancia_valida,
+        es_ciudad_valida,
         es_solicitud_de_mudanza,
         es_solicitud_de_paqueteo,
-        get_human_help,
+        obtener_ayuda_humana,
         inferir_tipo_de_servicio,
-        customer_requested_email,
+        cliente_solicito_correo,
     ]
 
     config = types.GenerateContentConfig(
@@ -312,11 +312,11 @@ async def _workflow_awaiting_remaining_information(
                 return (
                     [
                         InteractionMessage(
-                            role=InteractionType.MODEL, message=get_human_help()
+                            role=InteractionType.MODEL, message=obtener_ayuda_humana()
                         )
                     ],
                     ClientePotencialState.HUMAN_ESCALATION,
-                    "get_human_help",
+                    "obtener_ayuda_humana",
                     interaction_data,
                 )
             return (
@@ -337,11 +337,11 @@ async def _workflow_awaiting_remaining_information(
 
         tool_results, fr_parts = await _execute_tool_calls(model_turn_content, tools)
 
-        if "get_human_help" in tool_results:
+        if "obtener_ayuda_humana" in tool_results:
             return (
-                [InteractionMessage(role=InteractionType.MODEL, message=get_human_help())],
+                [InteractionMessage(role=InteractionType.MODEL, message=obtener_ayuda_humana())],
                 ClientePotencialState.HUMAN_ESCALATION,
-                "get_human_help",
+                "obtener_ayuda_humana",
                 interaction_data,
             )
 
@@ -372,8 +372,8 @@ async def _workflow_awaiting_remaining_information(
             )
 
         validation_checks = {
-            "is_valid_item": tool_results.get("is_valid_item"),
-            "is_valid_city": tool_results.get("is_valid_city"),
+            "es_mercancia_valida": tool_results.get("es_mercancia_valida"),
+            "es_ciudad_valida": tool_results.get("es_ciudad_valida"),
         }
 
         for check, result in validation_checks.items():
@@ -386,7 +386,7 @@ async def _workflow_awaiting_remaining_information(
                     interaction_data,
                 )
 
-        if "customer_requested_email" in tool_results:
+        if "cliente_solicito_correo" in tool_results:
             interaction_data["customer_requested_email_sent"] = True
             return (
                 [
@@ -400,9 +400,9 @@ async def _workflow_awaiting_remaining_information(
                 interaction_data,
             )
 
-        if "get_informacion_cliente_potencial" in tool_results:
+        if "obtener_informacion_cliente_potencial" in tool_results:
             interaction_data["remaining_information"] = tool_results[
-                "get_informacion_cliente_potencial"
+                "obtener_informacion_cliente_potencial"
             ]
             return await _workflow_remaining_information_provided(
                 interaction_data=interaction_data
@@ -429,7 +429,7 @@ async def _workflow_customer_asked_for_email_data_sent(
     client: genai.Client,
 ) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str], dict]:
     """Handles the workflow after the user has requested to send info via email."""
-    tools = [save_customer_email, get_human_help]
+    tools = [guardar_correo_cliente, obtener_ayuda_humana]
     config = types.GenerateContentConfig(
         tools=tools,
         system_instruction=PROMPT_GET_CUSTOMER_EMAIL_SYSTEM_PROMPT,
@@ -461,16 +461,16 @@ async def _workflow_customer_asked_for_email_data_sent(
     model_turn_content = response.candidates[0].content
     tool_results, _ = await _execute_tool_calls(model_turn_content, tools)
 
-    if "get_human_help" in tool_results:
+    if "obtener_ayuda_humana" in tool_results:
         return (
-            [InteractionMessage(role=InteractionType.MODEL, message=get_human_help())],
+            [InteractionMessage(role=InteractionType.MODEL, message=obtener_ayuda_humana())],
             ClientePotencialState.HUMAN_ESCALATION,
-            "get_human_help",
+            "obtener_ayuda_humana",
             interaction_data,
         )
 
-    if "save_customer_email" in tool_results:
-        interaction_data["customer_email"] = tool_results["save_customer_email"]
+    if "guardar_correo_cliente" in tool_results:
+        interaction_data["customer_email"] = tool_results["guardar_correo_cliente"]
         interaction_data["messages_after_finished_count"] = 0
         return (
             [
