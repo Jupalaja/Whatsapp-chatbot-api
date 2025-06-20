@@ -101,3 +101,17 @@ def is_valid_item(tipo_mercancia: str):
 def is_valid_city(ciudad: str):
     """Válida si una ciudad es un origen/destino válido. Por ahora, siempre retorna True."""
     return True
+
+
+def customer_requested_email():
+    """
+    Se debe llamar a esta función cuando el usuario indica que prefiere enviar la información por correo electrónico en lugar de proporcionarla en el chat.
+    """
+    return True
+
+
+def save_customer_email(email: str):
+    """
+    Se debe llamar a esta función para guardar el correo electrónico del cliente cuando este lo proporciona después de haber solicitado enviarlo por correo.
+    """
+    return email

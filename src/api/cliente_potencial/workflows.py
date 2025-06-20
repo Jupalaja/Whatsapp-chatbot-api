@@ -10,16 +10,21 @@ from .prompts import (
     PROMPT_AGENCIAMIENTO_DE_CARGA,
     PROMPT_ASIGNAR_AGENTE_COMERCIAL,
     PROMPT_CONTACTAR_AGENTE_ASIGNADO,
+    PROMPT_CUSTOMER_REQUESTED_EMAIL,
     PROMPT_DISCARD_PERSONA_NATURAL,
+    PROMPT_EMAIL_GUARDADO_Y_FINALIZAR,
+    PROMPT_GET_CUSTOMER_EMAIL_SYSTEM_PROMPT,
 )
 from .state import ClientePotencialState
 from .tools import (
+    customer_requested_email,
     get_informacion_cliente_potencial,
     inferir_tipo_de_servicio,
     is_persona_natural,
     is_valid_city,
     is_valid_item,
     needs_freight_forwarder,
+    save_customer_email,
     search_nit,
 )
 from src.shared.constants import GEMINI_MODEL
@@ -276,6 +281,7 @@ async def _workflow_awaiting_remaining_information(
         is_valid_city,
         get_human_help,
         inferir_tipo_de_servicio,
+        customer_requested_email,
     ]
 
     config = types.GenerateContentConfig(
@@ -333,6 +339,19 @@ async def _workflow_awaiting_remaining_information(
                 interaction_data,
             )
 
+        if "customer_requested_email" in tool_results:
+            return (
+                [
+                    InteractionMessage(
+                        role=InteractionType.MODEL,
+                        message=PROMPT_CUSTOMER_REQUESTED_EMAIL,
+                    )
+                ],
+                ClientePotencialState.CUSTOMER_ASKED_FOR_EMAIL_DATA_SENT,
+                None,
+                interaction_data,
+            )
+
         if "get_informacion_cliente_potencial" in tool_results:
             interaction_data["remaining_information"] = tool_results[
                 "get_informacion_cliente_potencial"
@@ -355,3 +374,75 @@ async def _workflow_awaiting_remaining_information(
             )
             continue
 
+
+async def _workflow_customer_asked_for_email_data_sent(
+    history_messages: list[InteractionMessage],
+    interaction_data: dict,
+    client: genai.Client,
+) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str], dict]:
+    """Handles the workflow after the user has requested to send info via email."""
+    tools = [save_customer_email, get_human_help]
+    config = types.GenerateContentConfig(
+        tools=tools,
+        system_instruction=PROMPT_GET_CUSTOMER_EMAIL_SYSTEM_PROMPT,
+        temperature=0.0,
+        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+    )
+
+    genai_history = await get_genai_history(history_messages)
+    response = await client.aio.models.generate_content(
+        model=GEMINI_MODEL, contents=genai_history, config=config
+    )
+
+    if not response.function_calls:
+        assistant_message_text = (
+            response.text
+            or "Por favor, indícame tu correo electrónico para continuar."
+        )
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL, message=assistant_message_text
+                )
+            ],
+            ClientePotencialState.CUSTOMER_ASKED_FOR_EMAIL_DATA_SENT,
+            None,
+            interaction_data,
+        )
+
+    model_turn_content = response.candidates[0].content
+    tool_results, _ = await _execute_tool_calls(model_turn_content, tools)
+
+    if "get_human_help" in tool_results:
+        return (
+            [InteractionMessage(role=InteractionType.MODEL, message=get_human_help())],
+            ClientePotencialState.HUMAN_ESCALATION,
+            "get_human_help",
+            interaction_data,
+        )
+
+    if "save_customer_email" in tool_results:
+        interaction_data["customer_email"] = tool_results["save_customer_email"]
+        interaction_data["messages_after_finished_count"] = 0
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL,
+                    message=PROMPT_EMAIL_GUARDADO_Y_FINALIZAR,
+                )
+            ],
+            ClientePotencialState.CONVERSATION_FINISHED,
+            None,
+            interaction_data,
+        )
+
+    # If the model called a different tool or failed, ask again.
+    assistant_message_text = await _get_final_text_response(
+        history_messages, client, PROMPT_GET_CUSTOMER_EMAIL_SYSTEM_PROMPT
+    )
+    return (
+        [InteractionMessage(role=InteractionType.MODEL, message=assistant_message_text)],
+        ClientePotencialState.CUSTOMER_ASKED_FOR_EMAIL_DATA_SENT,
+        None,
+        interaction_data,
+    )

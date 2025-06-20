@@ -12,6 +12,7 @@ from .workflows import (
     _workflow_awaiting_nit,
     _workflow_awaiting_persona_natural_freight_info,
     _workflow_awaiting_remaining_information,
+    _workflow_customer_asked_for_email_data_sent,
 )
 
 from src.shared.constants import GEMINI_MODEL, MESSAGES_AFTER_CONVERSATION_FINISHED
@@ -104,6 +105,10 @@ async def handle_in_progress_conversation(
         )
     if current_state == ClientePotencialState.AWAITING_PERSONA_NATURAL_FREIGHT_INFO:
         return await _workflow_awaiting_persona_natural_freight_info(
+            history_messages, interaction_data, client
+        )
+    if current_state == ClientePotencialState.CUSTOMER_ASKED_FOR_EMAIL_DATA_SENT:
+        return await _workflow_customer_asked_for_email_data_sent(
             history_messages, interaction_data, client
         )
     if current_state == ClientePotencialState.AWAITING_REMAINING_INFORMATION:
