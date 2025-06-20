@@ -6,6 +6,9 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str
 
+    # Google
+    GOOGLE_SECRETS_JSON_PATH: str = "secrets.json"
+
     # Google GenAI
     GOOGLE_GENAI_USE_VERTEXAI: bool = False
     GOOGLE_CLOUD_PROJECT: str | None = None

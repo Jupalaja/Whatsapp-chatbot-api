@@ -1,7 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 import google.genai as genai
 
 from src.api.chat import router as chat
@@ -10,6 +10,7 @@ from src.api.cliente_potencial import router as cliente_potencial
 from src.api.tipo_de_interaccion import router as tipo_de_interaccion
 from src.config import settings
 from src.database.db import engine, test_db_connection
+from src.services.google_sheets import GoogleSheetsService
 from src.shared.schemas import HealthResponse
 
 logging.basicConfig(level=logging.INFO)
@@ -35,6 +36,15 @@ async def lifespan(app: FastAPI):
     )
     logger.info("Google GenAI Client initialized.")
 
+    try:
+        app.state.sheets_service = GoogleSheetsService(
+            credentials_path=settings.GOOGLE_SECRETS_JSON_PATH
+        )
+        logger.info("Google Sheets Service initialized.")
+    except Exception as e:
+        logger.error(f"Failed to initialize Google Sheets Service: {e}")
+        app.state.sheets_service = None
+
     yield
     # Shutdown
     logger.info("Shutting down application...")
@@ -50,11 +60,14 @@ app.include_router(cliente_potencial.router, prefix="/api/v1", tags=["Cliente Po
 
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
-async def health_check():
+async def health_check(request: Request):
     """
     Checks the health of the application and its database connection.
     """
     db_ok = await test_db_connection()
+    sheets_ok = request.app.state.sheets_service is not None
     return HealthResponse(
-        status="ok", db_connection="ok" if db_ok else "failed"
+        status="ok",
+        db_connection="ok" if db_ok else "failed",
+        sheets_connection="ok" if sheets_ok else "failed",
     )

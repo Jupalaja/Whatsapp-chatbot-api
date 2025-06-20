@@ -15,6 +15,7 @@ class ChatResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     db_connection: str
+    sheets_connection: str
 
 
 class InteractionMessage(BaseModel):
