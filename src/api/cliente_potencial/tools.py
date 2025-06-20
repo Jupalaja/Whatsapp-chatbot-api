@@ -1,36 +1,20 @@
 from src.shared.enums import TipoDeServicio
 
 
-def inferir_tipo_de_servicio(descripcion_servicio: str) -> str:
+def inferir_tipo_de_servicio(tipo_de_servicio: str) -> str:
     """
-    Infiere el tipo de servicio logístico formal a partir de una descripción en lenguaje natural.
-    Utiliza esta función para convertir la descripción del servicio del usuario en un valor válido del enumerado TipoDeServicio ANTES de llamar a get_informacion_cliente_potencial.
-    Por ejemplo, si un usuario dice 'transporte de maquinaria', esta función podría devolver 'DISTRIBUCION'.
+    Valída y estandariza el tipo de servicio logístico inferido por el modelo.
+    El modelo debe analizar la descripción del servicio del usuario y llamar a esta función con el valor correspondiente del enumerado `TipoDeServicio`.
+    Este valor estandarizado se utiliza luego para registrar la información del cliente potencial.
+    Por ejemplo, si un usuario dice 'necesito transportar maquinaria', el modelo debe invocar esta función con `tipo_de_servicio='DISTRIBUCION'`.
 
     Args:
-        descripcion_servicio: La descripción del servicio proporcionada por el usuario.
+        tipo_de_servicio: El tipo de servicio inferido por el modelo. Debe ser uno de los valores del enumerado `TipoDeServicio`.
 
     Returns:
-        Un valor válido del enumerado TipoDeServicio.
+        El valor del enumerado `TipoDeServicio` como una cadena de texto.
     """
-    descripcion_lower = descripcion_servicio.lower()
-    if "importacion" in descripcion_lower or "importar" in descripcion_lower:
-        return TipoDeServicio.IMPORTACION.value
-    if "exportacion" in descripcion_lower or "exportar" in descripcion_lower:
-        return TipoDeServicio.EXPORTACION.value
-    if "almacenamiento" in descripcion_lower or "guardar" in descripcion_lower:
-        return TipoDeServicio.ALMACENAMIENTO.value
-    if "itr" in descripcion_lower:
-        return TipoDeServicio.ITR.value
-    # Default to distribution if it involves moving stuff
-    if (
-        "distribucion" in descripcion_lower
-        or "transporte" in descripcion_lower
-        or "mover" in descripcion_lower
-    ):
-        return TipoDeServicio.DISTRIBUCION.value
-    # Fallback if no keywords match. This shouldn't happen often with a good model.
-    return TipoDeServicio.DISTRIBUCION.value
+    return TipoDeServicio(tipo_de_servicio).value
 
 
 def search_nit(nit: str):
