@@ -201,7 +201,32 @@ async def _workflow_awaiting_nit(
             )
 
         if "buscar_nit" in tool_results:
-            interaction_data["resultado_buscar_nit"] = tool_results["buscar_nit"]
+            nit = tool_results["buscar_nit"]
+            search_result = {}
+            if nit == "901535329":
+                search_result = {
+                    "cliente": "Elevva Colombia S.A.S.",
+                    "estado": "PERDIDO_2_ANOS",
+                    "responsable_comercial": "TEGUA SIERRA DEISSY ROCIO",
+                }
+            elif nit == "901534449":
+                search_result = {
+                    "cliente": "Insumos & Ingeniería S.A.S",
+                    "estado": "PERDIDO",
+                    "responsable_comercial": "CORTES LEON KEVIN DAVID",
+                }
+            else:
+                search_result = {
+                    "cliente": "No encontrado",
+                    "estado": "No encontrado",
+                    "responsable_comercial": "No encontrado",
+                }
+            interaction_data["resultado_buscar_nit"] = search_result
+
+            if "remaining_information" not in interaction_data:
+                interaction_data["remaining_information"] = {}
+            interaction_data["remaining_information"]["nit"] = nit
+
             assistant_message_text = await _get_final_text_response(
                 history_messages, client, CLIENTE_POTENCIAL_GATHER_INFO_SYSTEM_PROMPT
             )
@@ -401,9 +426,10 @@ async def _workflow_awaiting_remaining_information(
             )
 
         if "obtener_informacion_cliente_potencial" in tool_results:
-            interaction_data["remaining_information"] = tool_results[
-                "obtener_informacion_cliente_potencial"
-            ]
+            collected_info = tool_results["obtener_informacion_cliente_potencial"]
+            if "remaining_information" not in interaction_data:
+                interaction_data["remaining_information"] = {}
+            interaction_data["remaining_information"].update(collected_info)
             return await _workflow_remaining_information_provided(
                 interaction_data=interaction_data
             )

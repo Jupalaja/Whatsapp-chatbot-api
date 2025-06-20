@@ -108,28 +108,8 @@ def inferir_tipo_de_servicio(tipo_de_servicio: str) -> str:
 
 
 def buscar_nit(nit: str):
-    """Busca información de una empresa por su NIT."""
-    if nit == "901535329":
-        return {
-            "cliente": "Elevva Colombia S.A.S.",
-            "estado": "PERDIDO_2_ANOS",
-            "responsable_comercial": "TEGUA SIERRA DEISSY ROCIO",
-            "telefono": "3057797223"
-        }
-    elif nit == "901534449":
-        return {
-            "cliente": "Insumos & Ingeniería S.A.S",
-            "estado": "PERDIDO",
-            "responsable_comercial": "CORTES LEON KEVIN DAVID",
-            "telefono": "3146694888"
-        }
-    else:
-        return {
-            "cliente": "No encontrado",
-            "estado": "No encontrado",
-            "responsable_comercial": "No encontrado",
-            "telefono": "No encontrado"
-        }
+    """Captura el NIT de la empresa proporcionado por el usuario."""
+    return nit
 
 
 def es_persona_natural():
