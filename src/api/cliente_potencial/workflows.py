@@ -30,6 +30,7 @@ from .tools import (
     necesita_agente_de_carga,
     guardar_correo_cliente,
     buscar_nit as buscar_nit_tool,
+    formatear_nombre_responsable,
 )
 from src.config import settings
 from src.shared.constants import GEMINI_MODEL
@@ -110,8 +111,9 @@ async def _workflow_remaining_information_provided(
     elif estado in ["PERDIDO", "PERDIDO MÁS DE 2 AÑOS"]:
         responsable = search_result.get("responsable_comercial")
         if responsable:
+            responsable_formateado = formatear_nombre_responsable(responsable)
             assistant_message_text = PROMPT_CONTACTAR_AGENTE_ASIGNADO.format(
-                responsable_comercial=responsable
+                responsable_comercial=responsable_formateado
             )
         else:  # Fallback if contact info is missing
             assistant_message_text = PROMPT_ASIGNAR_AGENTE_COMERCIAL

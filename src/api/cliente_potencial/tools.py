@@ -181,3 +181,38 @@ def cliente_solicito_correo():
 def guardar_correo_cliente(email: str):
     """Se debe llamar a esta función para guardar el correo electrónico del cliente cuando este lo proporciona después de haber solicitado enviarlo por correo."""
     return email
+
+
+def formatear_nombre_responsable(nombre_completo: str) -> str:
+    """
+    Formatea un nombre completo que está en formato 'APELLIDOS NOMBRES' a 'Nombres Apellidos' con capitalización de tipo título.
+    El modelo debe analizar el nombre del responsable comercial y utilizar esta función para formatearlo correctamente.
+    Por ejemplo, si el nombre es 'VELEZ IVONNE', se convierte en 'Ivonne Velez'.
+    Otro ejemplo: 'Zapata Castrillon Luis Fernando' se convierte en 'Luis Fernando Zapata Castrillon'.
+
+    Heurística de formato:
+    - 2 palabras: Apellido Nombre -> Nombre Apellido
+    - 3 palabras: Apellido1 Apellido2 Nombre -> Nombre Apellido1 Apellido2
+    - 4 palabras: Apellido1 Apellido2 Nombre1 Nombre2 -> Nombre1 Nombre2 Apellido1 Apellido2
+    - Para otros casos, se dividirá por la mitad.
+    """
+    parts = nombre_completo.strip().split()
+    num_parts = len(parts)
+
+    if num_parts <= 1:
+        return nombre_completo.title()
+
+    if num_parts == 2:  # Asume APELLIDO NOMBRE
+        nombres = parts[1:]
+        apellidos = parts[:1]
+    elif num_parts == 3:  # Heurística: Asume APELLIDO1 APELLIDO2 NOMBRE
+        nombres = parts[2:]
+        apellidos = parts[:2]
+    else:  # 4 o más palabras
+        # Asume que los apellidos son la primera mitad y los nombres la segunda
+        split_point = num_parts // 2
+        apellidos = parts[:split_point]
+        nombres = parts[split_point:]
+
+    nombre_formateado = " ".join(nombres) + " " + " ".join(apellidos)
+    return nombre_formateado.title()
