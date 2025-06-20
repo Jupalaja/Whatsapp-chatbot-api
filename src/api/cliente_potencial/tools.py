@@ -1,6 +1,7 @@
 import unicodedata
 
 from src.shared.enums import TipoDeServicio
+from .prompts import PROMPT_CIUDAD_NO_VALIDA
 
 
 BLACKLISTED_CITIES = {
@@ -132,7 +133,7 @@ def is_valid_city(ciudad: str):
     """
     normalized_ciudad = _normalize_city_name(ciudad)
     if normalized_ciudad in BLACKLISTED_CITIES:
-        return f"Lo sentimos, no prestamos servicio en {ciudad.title()}, ya que se encuentra en una zona donde actualmente no tenemos cobertura. Agradecemos tu interés en Botero Soto."
+        return PROMPT_CIUDAD_NO_VALIDA.format(ciudad=ciudad.title())
     return True
 
 

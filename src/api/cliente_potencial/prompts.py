@@ -89,3 +89,5 @@ PROMPT_EMAIL_GUARDADO_Y_FINALIZAR = "¡Perfecto! Hemos guardado tu correo electr
 PROMPT_ASIGNAR_AGENTE_COMERCIAL = "Te asignaremos un agente comercial para que se ponga en contacto contigo, a continuación te compartiremos su información"
 
 PROMPT_CONTACTAR_AGENTE_ASIGNADO = "Con todo el gusto te comparto el agente comercial que tienen asignado a su cuenta, para que te ayude con el requerimiento que tienen. Se trata de {responsable_comercial}, su número es {telefono}"
+
+PROMPT_CIUDAD_NO_VALIDA = "Lo sentimos, no prestamos servicio en {ciudad}, ya que se encuentra en una zona donde actualmente no tenemos cobertura. Agradecemos tu interés en Botero Soto."
