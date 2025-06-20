@@ -111,11 +111,11 @@ async def handle_in_progress_conversation(
         )
     if current_state == ClientePotencialState.CUSTOMER_ASKED_FOR_EMAIL_DATA_SENT:
         return await _workflow_customer_asked_for_email_data_sent(
-            history_messages, interaction_data, client
+            history_messages, interaction_data, client, sheets_service
         )
     if current_state == ClientePotencialState.AWAITING_REMAINING_INFORMATION:
         return await _workflow_awaiting_remaining_information(
-            history_messages, interaction_data, client
+            history_messages, interaction_data, client, sheets_service
         )
 
     logger.warning(

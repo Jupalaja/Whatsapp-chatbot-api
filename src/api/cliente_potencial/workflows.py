@@ -1,5 +1,6 @@
 import logging
 from typing import Optional, Tuple
+from datetime import datetime
 
 import google.genai as genai
 from google.genai import types
@@ -44,6 +45,92 @@ from src.shared.utils.history import (
 from src.services.google_sheets import GoogleSheetsService
 
 logger = logging.getLogger(__name__)
+
+
+async def _write_cliente_potencial_to_sheet(
+    interaction_data: dict, sheets_service: Optional[GoogleSheetsService]
+):
+    if (
+        not settings.GOOGLE_SHEET_ID_CLIENTES_POTENCIALES_EXPORT
+        or not sheets_service
+    ):
+        logger.warning(
+            "Spreadsheet ID for export not configured or sheets service not available. Skipping write."
+        )
+        return
+
+    try:
+        worksheet = sheets_service.get_worksheet(
+            spreadsheet_id=settings.GOOGLE_SHEET_ID_CLIENTES_POTENCIALES_EXPORT,
+            worksheet_name="CLIENTES_POTENCIALES",
+        )
+        if not worksheet:
+            logger.error("Could not find CLIENTES_POTENCIALES worksheet.")
+            return
+
+        remaining_info = interaction_data.get("remaining_information", {})
+        search_result = interaction_data.get("resultado_buscar_nit", {})
+        customer_email = interaction_data.get("customer_email")
+
+        if not remaining_info and not customer_email:
+            logger.info("Not enough information to write to sheet.")
+            return
+
+        # Mapping data
+        fecha_perfilacion = datetime.now().strftime("%d/%m/%Y")
+        nit = remaining_info.get(
+            "nit"
+        ) or interaction_data.get("remaining_information", {}).get("nit", "")
+        estado_cliente = search_result.get("estado", "")
+        razon_social = remaining_info.get("nombre_legal", "")
+        ciudad = ""  # Not specified in requirements
+        nombre_decisor = remaining_info.get("nombre_persona_contacto", "")
+        celular = remaining_info.get("telefono", "")
+        correo = remaining_info.get("correo") or customer_email or ""
+        tipo_servicio = remaining_info.get("tipo_de_servicio", "")
+        tipo_mercancia = remaining_info.get("tipo_mercancia", "")
+        peso = remaining_info.get("peso_de_mercancia", "")
+        origen = remaining_info.get("ciudad_origen", "")
+        destino = remaining_info.get("ciudad_destino", "")
+        potencial_viajes = remaining_info.get("promedio_viajes_mensuales", "")
+        descripcion_necesidad = remaining_info.get("detalles_mercancia", "")
+        perfilado = "SI" if razon_social else "NO"
+        motivo_descarte = interaction_data.get("discarded", "")
+        if not motivo_descarte and customer_email:
+            motivo_descarte = "Prefirió correo"
+        comercial_asignado_raw = search_result.get("responsable_comercial", "")
+        comercial_asignado = (
+            formatear_nombre_responsable(comercial_asignado_raw)
+            if comercial_asignado_raw
+            else ""
+        )
+
+        row_to_append = [
+            fecha_perfilacion,
+            nit,
+            estado_cliente,
+            razon_social,
+            ciudad,
+            nombre_decisor,
+            celular,
+            correo,
+            tipo_servicio,
+            tipo_mercancia,
+            peso,
+            origen,
+            destino,
+            str(potencial_viajes),
+            descripcion_necesidad,
+            perfilado,
+            motivo_descarte,
+            comercial_asignado,
+        ]
+
+        sheets_service.append_row(worksheet, row_to_append)
+        logger.info(f"Successfully wrote data for NIT {nit} to Google Sheet.")
+
+    except Exception as e:
+        logger.error(f"Failed to write to Google Sheet: {e}", exc_info=True)
 
 
 async def _execute_tool_calls(
@@ -94,11 +181,13 @@ async def _get_final_text_response(
 
 async def _workflow_remaining_information_provided(
     interaction_data: dict,
+    sheets_service: Optional[GoogleSheetsService],
 ) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str], dict]:
     """
     Handles the logic after all client information has been provided and stored.
     It determines the next step based on the client's existing status.
     """
+    await _write_cliente_potencial_to_sheet(interaction_data, sheets_service)
     search_result = interaction_data.get("resultado_buscar_nit", {})
     estado = search_result.get("estado")
     assistant_message_text = ""
@@ -347,6 +436,7 @@ async def _workflow_awaiting_remaining_information(
     history_messages: list[InteractionMessage],
     interaction_data: dict,
     client: genai.Client,
+    sheets_service: Optional[GoogleSheetsService],
 ) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str], dict]:
     """Handles the workflow for gathering detailed information from a potential client."""
     tools = [
@@ -486,7 +576,7 @@ async def _workflow_awaiting_remaining_information(
                 interaction_data["remaining_information"] = {}
             interaction_data["remaining_information"].update(collected_info)
             return await _workflow_remaining_information_provided(
-                interaction_data=interaction_data
+                interaction_data=interaction_data, sheets_service=sheets_service
             )
 
         if fr_parts:
@@ -508,6 +598,7 @@ async def _workflow_customer_asked_for_email_data_sent(
     history_messages: list[InteractionMessage],
     interaction_data: dict,
     client: genai.Client,
+    sheets_service: Optional[GoogleSheetsService],
 ) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str], dict]:
     """Handles the workflow after the user has requested to send info via email."""
     tools = [guardar_correo_cliente, obtener_ayuda_humana]
@@ -557,6 +648,7 @@ async def _workflow_customer_asked_for_email_data_sent(
     if "guardar_correo_cliente" in tool_results:
         interaction_data["customer_email"] = tool_results["guardar_correo_cliente"]
         interaction_data["messages_after_finished_count"] = 0
+        await _write_cliente_potencial_to_sheet(interaction_data, sheets_service)
         return (
             [
                 InteractionMessage(
