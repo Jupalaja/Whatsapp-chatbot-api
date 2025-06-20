@@ -100,6 +100,7 @@ async def handle_interaction(
             sessionId=interaction_request.sessionId,
             messages=[assistant_message] if assistant_message else [],
             toolCall=tool_call_name,
+            state=interaction.state,
         )
     except errors.APIError as e:
         logger.error(f"Gemini API Error: {e}")
@@ -125,4 +126,6 @@ async def get_interaction_history(sessionID: str, db: AsyncSession = Depends(get
         InteractionMessage.model_validate(msg) for msg in interaction.messages
     ]
 
-    return InteractionResponse(sessionId=sessionID, messages=history_messages)
+    return InteractionResponse(
+        sessionId=sessionID, messages=history_messages, state=interaction.state
+    )

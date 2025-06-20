@@ -56,7 +56,9 @@ async def handle(
         db.add(new_interaction)
         await db.commit()
         return InteractionResponse(
-            sessionId=interaction_request.sessionId, messages=[assistant_message]
+            sessionId=interaction_request.sessionId,
+            messages=[assistant_message],
+            state=new_interaction.state,
         )
 
     history_messages.append(interaction_request.message)
@@ -96,6 +98,7 @@ async def handle(
             sessionId=interaction_request.sessionId,
             messages=new_assistant_messages,
             toolCall=tool_call_name,
+            state=interaction.state,
         )
     except errors.APIError as e:
         logger.error(f"Gemini API Error: {e}")

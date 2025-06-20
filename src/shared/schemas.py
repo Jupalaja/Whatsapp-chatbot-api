@@ -31,6 +31,7 @@ class InteractionResponse(BaseModel):
     sessionId: str
     messages: List[InteractionMessage]
     toolCall: Optional[str] = None
+    state: Optional[str] = None
 
 
 CategoriaClasificacionLiteral = Literal[

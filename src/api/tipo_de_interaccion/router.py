@@ -72,6 +72,7 @@ async def handle(
             messages=[assistant_message],
             toolCall="get_human_help",
             clasificacion=None,
+            state=interaction.state,
         )
 
     try:
@@ -102,6 +103,7 @@ async def handle(
             messages=new_assistant_messages,
             toolCall=tool_call_name,
             clasificacion=clasificacion,
+            state=interaction.state,
         )
     except errors.APIError as e:
         logger.error(f"Gemini API Error: {e}")
