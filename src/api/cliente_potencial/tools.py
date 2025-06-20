@@ -76,6 +76,7 @@ def get_informacion_cliente_potencial(
     tipo_de_servicio: str,
     tipo_mercancia: str,
     detalles_mercancia: str,
+    peso_de_mercancia: str,
     ciudad_origen: str,
     ciudad_destino: str,
     promedio_viajes_mensuales: int,
@@ -84,7 +85,7 @@ def get_informacion_cliente_potencial(
     Se debe llamar a esta función cuando se haya recopilado la información
     requerida del cliente. Esta función guarda los detalles del cliente potencial.
     La información requerida es: nombre_legal, nombre_persona_contacto, correo, telefono,
-    tipo_de_servicio, tipo_mercancia, detalles_mercancia, ciudad_origen, ciudad_destino,
+    tipo_de_servicio, tipo_mercancia, detalles_mercancia, peso_de_mercancia, ciudad_origen, ciudad_destino,
     y promedio_viajes_mensuales. No esperes una confirmación del cliente para llamar esta
     función, con tener la información suficiente basta.
     """
