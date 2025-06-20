@@ -409,13 +409,18 @@ async def _workflow_awaiting_remaining_information(
 
         if "obtener_ayuda_humana" in tool_results:
             return (
-                [InteractionMessage(role=InteractionType.MODEL, message=obtener_ayuda_humana())],
+                [
+                    InteractionMessage(
+                        role=InteractionType.MODEL, message=obtener_ayuda_humana()
+                    )
+                ],
                 ClientePotencialState.HUMAN_ESCALATION,
                 "obtener_ayuda_humana",
                 interaction_data,
             )
 
         if tool_results.get("es_solicitud_de_mudanza"):
+            interaction_data["discarded"] = "es_solicitud_de_mudanza"
             return (
                 [
                     InteractionMessage(
@@ -429,6 +434,7 @@ async def _workflow_awaiting_remaining_information(
             )
 
         if tool_results.get("es_solicitud_de_paqueteo"):
+            interaction_data["discarded"] = "es_solicitud_de_paqueteo"
             return (
                 [
                     InteractionMessage(
@@ -448,6 +454,10 @@ async def _workflow_awaiting_remaining_information(
 
         for check, result in validation_checks.items():
             if result and (isinstance(result, str)):
+                if check == "es_mercancia_valida":
+                    interaction_data["discarded"] = "no_es_mercancia_valida"
+                elif check == "es_ciudad_valida":
+                    interaction_data["discarded"] = "no_es_ciudad_valida"
                 interaction_data["messages_after_finished_count"] = 0
                 return (
                     [InteractionMessage(role=InteractionType.MODEL, message=result)],
@@ -480,7 +490,7 @@ async def _workflow_awaiting_remaining_information(
             )
 
         if fr_parts:
-            tool_turn_content = types.Content(role='tool', parts=fr_parts)
+            tool_turn_content = types.Content(role="tool", parts=fr_parts)
             history_messages.extend(
                 genai_content_to_interaction_messages([tool_turn_content])
             )
@@ -534,7 +544,11 @@ async def _workflow_customer_asked_for_email_data_sent(
 
     if "obtener_ayuda_humana" in tool_results:
         return (
-            [InteractionMessage(role=InteractionType.MODEL, message=obtener_ayuda_humana())],
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL, message=obtener_ayuda_humana()
+                )
+            ],
             ClientePotencialState.HUMAN_ESCALATION,
             "obtener_ayuda_humana",
             interaction_data,
@@ -560,7 +574,11 @@ async def _workflow_customer_asked_for_email_data_sent(
         history_messages, client, PROMPT_GET_CUSTOMER_EMAIL_SYSTEM_PROMPT
     )
     return (
-        [InteractionMessage(role=InteractionType.MODEL, message=assistant_message_text)],
+        [
+            InteractionMessage(
+                role=InteractionType.MODEL, message=assistant_message_text
+            )
+        ],
         ClientePotencialState.CUSTOMER_ASKED_FOR_EMAIL_DATA_SENT,
         None,
         interaction_data,
