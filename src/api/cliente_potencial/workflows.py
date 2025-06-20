@@ -29,8 +29,9 @@ from .tools import (
     es_mercancia_valida,
     necesita_agente_de_carga,
     guardar_correo_cliente,
-    buscar_nit,
+    buscar_nit as buscar_nit_tool,
 )
+from src.config import settings
 from src.shared.constants import GEMINI_MODEL
 from src.shared.enums import InteractionType
 from src.shared.schemas import InteractionMessage
@@ -39,6 +40,7 @@ from src.shared.utils.history import (
     genai_content_to_interaction_messages,
     get_genai_history,
 )
+from src.services.google_sheets import GoogleSheetsService
 
 logger = logging.getLogger(__name__)
 
@@ -105,13 +107,11 @@ async def _workflow_remaining_information_provided(
     if estado == "PROSPECTO":
         assistant_message_text = PROMPT_ASIGNAR_AGENTE_COMERCIAL
         tool_call_name = "obtener_ayuda_humana"
-    elif estado in ["PERDIDO", "PERDIDO_2_ANOS"]:
+    elif estado in ["PERDIDO", "PERDIDO MÁS DE 2 AÑOS"]:
         responsable = search_result.get("responsable_comercial")
-        telefono = search_result.get("telefono")
-        if responsable and telefono:
+        if responsable:
             assistant_message_text = PROMPT_CONTACTAR_AGENTE_ASIGNADO.format(
-                responsable_comercial=responsable,
-                telefono=telefono,
+                responsable_comercial=responsable
             )
         else:  # Fallback if contact info is missing
             assistant_message_text = PROMPT_ASIGNAR_AGENTE_COMERCIAL
@@ -137,8 +137,68 @@ async def _workflow_awaiting_nit(
     history_messages: list[InteractionMessage],
     interaction_data: dict,
     client: genai.Client,
+    sheets_service: Optional[GoogleSheetsService],
 ) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str], dict]:
     """Handles the workflow when the assistant is waiting for the user's NIT."""
+
+    def buscar_nit(nit: str):
+        """Captura el NIT de la empresa proporcionado por el usuario y busca en Google Sheets."""
+        search_result = {}
+        if settings.GOOGLE_SHEET_ID_CLIENTES_POTENCIALES and sheets_service:
+            worksheet = sheets_service.get_worksheet(
+                spreadsheet_id=settings.GOOGLE_SHEET_ID_CLIENTES_POTENCIALES,
+                worksheet_name="NITS",
+            )
+            if worksheet:
+                records = sheets_service.read_data(worksheet)
+                found_record = None
+                for record in records:
+                    if str(record.get("NIT - 10 DIGITOS")) == nit or str(
+                        record.get("NIT - 9 DIGITOS")
+                    ) == nit:
+                        found_record = record
+                        break
+
+                if found_record:
+                    logger.info(f"Found NIT {nit} in Google Sheet: {found_record}")
+                    search_result = {
+                        "cliente": found_record.get(" Cliente"),
+                        "estado": found_record.get(" Estado del cliente"),
+                        "responsable_comercial": found_record.get(
+                            " RESPONSABLE COMERCIAL"
+                        ),
+                    }
+                    # Strip whitespace from string values
+                    for key, value in search_result.items():
+                        if isinstance(value, str):
+                            search_result[key] = value.strip()
+                else:
+                    logger.info(f"NIT {nit} not found in Google Sheet.")
+                    search_result = {
+                        "cliente": "No encontrado",
+                        "estado": "No encontrado",
+                        "responsable_comercial": "No encontrado",
+                    }
+            else:
+                logger.error("Could not access NITS worksheet.")
+                search_result = {
+                    "cliente": "Error de sistema",
+                    "estado": "Error de sistema",
+                    "responsable_comercial": "Error de sistema",
+                }
+        else:
+            logger.warning(
+                "GOOGLE_SHEET_ID_CLIENTES_POTENCIALES is not set or sheets_service is not available. Skipping NIT check."
+            )
+            search_result = {
+                "cliente": "No verificado",
+                "estado": "No verificado",
+                "responsable_comercial": "No verificado",
+            }
+        return search_result
+
+    buscar_nit.__doc__ = buscar_nit_tool.__doc__
+
     tools = [buscar_nit, es_persona_natural, obtener_ayuda_humana]
     config = types.GenerateContentConfig(
         tools=tools,
@@ -183,7 +243,7 @@ async def _workflow_awaiting_nit(
             )
             continue  # The history now includes the bad function call, let model retry.
 
-        tool_turn_content = types.Content(role='tool', parts=fr_parts)
+        tool_turn_content = types.Content(role="tool", parts=fr_parts)
         history_messages.extend(
             genai_content_to_interaction_messages([tool_turn_content])
         )
@@ -201,27 +261,10 @@ async def _workflow_awaiting_nit(
             )
 
         if "buscar_nit" in tool_results:
-            nit = tool_results["buscar_nit"]
-            search_result = {}
-            if nit == "901535329":
-                search_result = {
-                    "cliente": "Elevva Colombia S.A.S.",
-                    "estado": "PERDIDO_2_ANOS",
-                    "responsable_comercial": "TEGUA SIERRA DEISSY ROCIO",
-                }
-            elif nit == "901534449":
-                search_result = {
-                    "cliente": "Insumos & Ingeniería S.A.S",
-                    "estado": "PERDIDO",
-                    "responsable_comercial": "CORTES LEON KEVIN DAVID",
-                }
-            else:
-                search_result = {
-                    "cliente": "No encontrado",
-                    "estado": "No encontrado",
-                    "responsable_comercial": "No encontrado",
-                }
+            search_result = tool_results["buscar_nit"]
             interaction_data["resultado_buscar_nit"] = search_result
+
+            nit = model_turn_content.parts[0].function_call.args.get("nit")
 
             if "remaining_information" not in interaction_data:
                 interaction_data["remaining_information"] = {}

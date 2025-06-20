@@ -20,6 +20,7 @@ from src.shared.tools import obtener_ayuda_humana
 from src.shared.schemas import InteractionMessage
 from src.shared.enums import InteractionType
 from src.shared.utils.history import get_genai_history
+from src.services.google_sheets import GoogleSheetsService
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +95,7 @@ async def handle_in_progress_conversation(
     current_state: ClientePotencialState,
     interaction_data: dict,
     client: genai.Client,
+    sheets_service: Optional[GoogleSheetsService],
 ) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str], dict]:
     """
     Handles the main, in-progress conversation states by dispatching to the
@@ -101,7 +103,7 @@ async def handle_in_progress_conversation(
     """
     if current_state == ClientePotencialState.AWAITING_NIT:
         return await _workflow_awaiting_nit(
-            history_messages, interaction_data, client
+            history_messages, interaction_data, client, sheets_service
         )
     if current_state == ClientePotencialState.AWAITING_PERSONA_NATURAL_FREIGHT_INFO:
         return await _workflow_awaiting_persona_natural_freight_info(

@@ -9,6 +9,7 @@ from .conversation_flow import (
     handle_in_progress_conversation,
 )
 from src.shared.schemas import InteractionMessage
+from src.services.google_sheets import GoogleSheetsService
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,7 @@ async def handle_cliente_potencial(
     current_state: ClientePotencialState,
     interaction_data: Optional[dict],
     client: genai.Client,
+    sheets_service: Optional[GoogleSheetsService],
 ) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str], Optional[dict]]:
     """
     Handles the core logic of the conversation based on its current state.
@@ -33,6 +35,7 @@ async def handle_cliente_potencial(
         current_state: The current state of the conversation state machine.
         interaction_data: The stored data from the interaction.
         client: The configured Google GenAI client.
+        sheets_service: The service for interacting with Google Sheets.
 
     Returns:
         A tuple containing:
@@ -57,4 +60,5 @@ async def handle_cliente_potencial(
             current_state=current_state,
             interaction_data=interaction_data,
             client=client,
+            sheets_service=sheets_service,
         )

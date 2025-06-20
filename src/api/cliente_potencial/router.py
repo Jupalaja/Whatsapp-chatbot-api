@@ -14,6 +14,7 @@ from src.database import models
 from src.database.db import get_db
 from src.shared.enums import InteractionType
 from src.shared.schemas import InteractionRequest, InteractionResponse, InteractionMessage
+from src.services.google_sheets import GoogleSheetsService
 
 
 router = APIRouter()
@@ -27,6 +28,7 @@ async def handle(
     db: AsyncSession = Depends(get_db),
 ):
     client: genai.Client = request.app.state.genai_client
+    sheets_service: GoogleSheetsService = request.app.state.sheets_service
 
     interaction = await db.get(models.Interaction, interaction_request.sessionId)
 
@@ -75,6 +77,7 @@ async def handle(
             current_state=current_state,
             interaction_data=interaction_data,
             client=client,
+            sheets_service=sheets_service,
         )
 
         history_messages.extend(new_assistant_messages)
