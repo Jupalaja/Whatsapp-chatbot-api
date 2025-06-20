@@ -340,6 +340,7 @@ async def _workflow_awaiting_remaining_information(
             )
 
         if "customer_requested_email" in tool_results:
+            interaction_data["customer_requested_email_sent"] = True
             return (
                 [
                     InteractionMessage(
@@ -446,3 +447,4 @@ async def _workflow_customer_asked_for_email_data_sent(
         None,
         interaction_data,
     )
+
