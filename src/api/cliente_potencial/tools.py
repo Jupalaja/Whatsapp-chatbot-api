@@ -1,4 +1,48 @@
+import unicodedata
+
 from src.shared.enums import TipoDeServicio
+
+
+BLACKLISTED_CITIES = {
+    # Amazonas
+    "leticia", "el encanto", "la chorrera", "la pedrera", "la victoria", "miriti-parana", "puerto alegria", "puerto arica", "puerto narino", "puerto santander", "tarapaca",
+    # Arauca
+    "arauca", "arauquita", "cravo norte", "fortul", "puerto rondon", "saravena", "tame",
+    # Archipiélago de San Andrés, Providencia y Santa Catalina
+    "san andres", "providencia", "santa catalina",
+    # Bolívar
+    "altos del rosario", "barranco de loba", "el penon", "regidor", "rio viejo", "san martin de loba", "arenal", "cantagallo", "morales", "san pablo", "santa rosa del sur", "simiti", "montecristo", "pinillos", "san jacinto del cauca", "tiquisio",
+    # Caquetá
+    "albania", "belen de los andaquies", "cartagena del chaira", "curillo", "el doncello", "el paujil", "la montanita", "milan", "morelia", "puerto rico", "san jose del fragua", "san vicente del caguan", "solano", "solita", "valparaiso",
+    # Cauca
+    "cajibio", "el tambo", "la sierra", "morales", "sotara", "buenos aires", "suarez", "guapi", "lopez", "timbiqui", "inza", "jambalo", "paez", "purace", "silvia", "toribio", "totoro", "almaguer", "argelia", "balboa", "bolivar", "florencia", "la vega", "piamonte", "san sebastian", "santa rosa", "sucre",
+    # Chocó
+    "atrato", "darien", "pacifico norte", "pacifico sur", "san juan", "bagado", "bahia solano", "nuqui", "alto baudo", "condoto",
+    # Guainía
+    "barranco mina", "cacahual", "inirida", "la guadalupe", "mapiripan", "morichal", "pana pana", "puerto colombia", "san felipe",
+    # Guaviare
+    "calamar", "el retorno", "miraflores", "san jose del guaviare",
+    # Huila
+    "algeciras", "santa maria",
+    # Norte de Santander
+    "el tarra", "tibu", "cachira", "convencion", "el carmen", "hacari", "la playa", "san calixto", "teorama", "herran", "ragonvalia",
+    # Putumayo
+    "colon", "puerto asis", "puerto caicedo", "puerto guzman", "puerto leguizamo", "san francisco", "san miguel", "santiago", "sibundoy", "valle del guamuez", "villa garzon",
+    # Vaupés
+    "caruru", "mitu", "pacoa", "papunahua", "taraira", "yavarate",
+    # Vichada
+    "cumaribo", "la primavera", "puerto carreno", "santa rosalia",
+}
+
+
+def _normalize_city_name(name: str) -> str:
+    """Normalizes a city name by removing accents, converting to lowercase, and stripping whitespace."""
+    s = "".join(
+        c
+        for c in unicodedata.normalize("NFD", name)
+        if unicodedata.category(c) != "Mn"
+    )
+    return s.lower().strip()
 
 
 def inferir_tipo_de_servicio(tipo_de_servicio: str) -> str:
@@ -83,7 +127,12 @@ def is_valid_item(tipo_mercancia: str):
 
 
 def is_valid_city(ciudad: str):
-    """Válida si una ciudad es un origen/destino válido. Por ahora, siempre retorna True."""
+    """
+    Válida si una ciudad es un origen/destino válido. Si no es válido, retorna un mensaje para el usuario.
+    """
+    normalized_ciudad = _normalize_city_name(ciudad)
+    if normalized_ciudad in BLACKLISTED_CITIES:
+        return f"Lo sentimos, no prestamos servicio en {ciudad.title()}, ya que se encuentra en una zona donde actualmente no tenemos cobertura. Agradecemos tu interés en Botero Soto."
     return True
 
 

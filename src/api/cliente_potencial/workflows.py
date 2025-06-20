@@ -339,6 +339,21 @@ async def _workflow_awaiting_remaining_information(
                 interaction_data,
             )
 
+        if "is_valid_city" in tool_results:
+            city_validation_result = tool_results["is_valid_city"]
+            if isinstance(city_validation_result, str):
+                interaction_data["messages_after_finished_count"] = 0
+                return (
+                    [
+                        InteractionMessage(
+                            role=InteractionType.MODEL, message=city_validation_result
+                        )
+                    ],
+                    ClientePotencialState.CONVERSATION_FINISHED,
+                    None,
+                    interaction_data,
+                )
+
         if "customer_requested_email" in tool_results:
             interaction_data["customer_requested_email_sent"] = True
             return (
@@ -447,4 +462,3 @@ async def _workflow_customer_asked_for_email_data_sent(
         None,
         interaction_data,
     )
-
