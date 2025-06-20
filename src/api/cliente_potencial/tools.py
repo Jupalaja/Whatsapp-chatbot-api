@@ -1,7 +1,11 @@
 import unicodedata
 
 from src.shared.enums import TipoDeServicio
-from .prompts import PROMPT_CIUDAD_NO_VALIDA
+from .prompts import (
+    PROMPT_CIUDAD_NO_VALIDA,
+    PROMPT_MERCANCIA_NO_TRANSPORTADA,
+    PROMPT_SERVICIO_NO_PRESTADO_ULTIMA_MILLA,
+)
 
 
 BLACKLISTED_CITIES = {
@@ -36,14 +40,55 @@ BLACKLISTED_CITIES = {
 }
 
 
-def _normalize_city_name(name: str) -> str:
-    """Normalizes a city name by removing accents, converting to lowercase, and stripping whitespace."""
+def _normalize_text(name: str) -> str:
+    """Normalizes a string by removing accents, converting to lowercase, and stripping whitespace."""
     s = "".join(
         c
         for c in unicodedata.normalize("NFD", name)
         if unicodedata.category(c) != "Mn"
     )
     return s.lower().strip()
+
+
+FORBIDDEN_GOODS_KEYWORDS = {
+    _normalize_text(keyword) for keyword in [
+        # Mercancías que no moviliza Botero Soto
+        "desechos peligrosos", "semovientes", "animales vivos", "animal", "armas", "municiones",
+        "carnes", "despojos comestibles", "explosivos", "legumbres", "hortalizas", "plantas",
+        "raices", "tuberculos alimenticios", "liquidos inflamables", "productos de origen animal",
+        "material radiactivo", "navegacion aerea", "navegacion espacial", "navegacion maritima",
+        "navegacion fluvial", "objetos de arte", "coleccion", "antigüedad", "perlas",
+        "piedras preciosas", "pescados", "crustaceos", "moluscos", "invertebrados acuaticos",
+        "polvora", "pirotecnia", "fosforos", "cerillas", "residuos", "desperdicios",
+        "alimentos", "sustancias toxicas", "sustancias infecciosas",
+        # Productos no transportados por Botero Soto
+        "aceites crudos", "aceites de petroleo", "minerales bituminosos",
+        "alquitranes de hulla", "alquitranes de lignito", "alquitranes de turba",
+        "alquitranes minerales", "betunes", "asfaltos naturales", "pizarras bituminosas",
+        "arenas bituminosas", "asfaltitas", "rocas asfalticas", "brea", "coque de brea",
+        "coque de petroleo", "betun de petroleo", "energia electrica", "gas de hulla",
+        "gas de agua", "gas pobre", "lignitos", "azabache", "mezclas bituminosas",
+        "turba", "vaselina", "parafina", "cera de petroleo", "ozoquerita",
+        "cera de lignito", "cera de turba", "ceras minerales", "combustible para motores",
+        "gasolina", "etanol",
+    ]
+}
+
+
+def es_solicitud_de_mudanza(es_mudanza: bool) -> bool:
+    """
+    Determina si la solicitud del cliente es para una mudanza.
+    El modelo debe analizar el tipo de mercancía y la descripción del usuario y llamar a esta función con `es_mudanza=True` si corresponde a un servicio de mudanza o trasteo.
+    """
+    return es_mudanza
+
+
+def es_solicitud_de_paqueteo(es_paqueteo: bool) -> bool:
+    """
+    Determina si la solicitud del cliente es para paquetes pequeños.
+    El modelo debe analizar el tipo de mercancía y la descripción del usuario y llamar a esta función con `es_paqueteo=True` si corresponde a un servicio de 'paqueteo' qu consiste en transporte de mercancía de bajo peso y poco tamaño.
+    """
+    return es_paqueteo
 
 
 def inferir_tipo_de_servicio(tipo_de_servicio: str) -> str:
@@ -123,7 +168,19 @@ def get_informacion_cliente_potencial(
 
 
 def is_valid_item(tipo_mercancia: str):
-    """Válida si el tipo de mercancía es transportable. Por ahora, siempre retorna True."""
+    """
+    Válida si el tipo de mercancía y servicio asociado son transportables por Botero Soto.
+    Devuelve True si es válido, o un mensaje de error si no lo es.
+    """
+    normalized_mercancia = _normalize_text(tipo_mercancia)
+
+    if "ultima milla" in normalized_mercancia:
+        return PROMPT_SERVICIO_NO_PRESTADO_ULTIMA_MILLA
+
+    for keyword in FORBIDDEN_GOODS_KEYWORDS:
+        if keyword in normalized_mercancia:
+            return PROMPT_MERCANCIA_NO_TRANSPORTADA.format(tipo_mercancia=tipo_mercancia)
+
     return True
 
 
@@ -131,7 +188,7 @@ def is_valid_city(ciudad: str):
     """
     Válida si una ciudad es un origen/destino válido. Si no es válido, retorna un mensaje para el usuario.
     """
-    normalized_ciudad = _normalize_city_name(ciudad)
+    normalized_ciudad = _normalize_text(ciudad)
     if normalized_ciudad in BLACKLISTED_CITIES:
         return PROMPT_CIUDAD_NO_VALIDA.format(ciudad=ciudad.title())
     return True

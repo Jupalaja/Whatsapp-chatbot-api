@@ -14,10 +14,14 @@ from .prompts import (
     PROMPT_DISCARD_PERSONA_NATURAL,
     PROMPT_EMAIL_GUARDADO_Y_FINALIZAR,
     PROMPT_GET_CUSTOMER_EMAIL_SYSTEM_PROMPT,
+    PROMPT_SERVICIO_NO_PRESTADO_MUDANZA,
+    PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO,
 )
 from .state import ClientePotencialState
 from .tools import (
     customer_requested_email,
+    es_solicitud_de_mudanza,
+    es_solicitud_de_paqueteo,
     get_informacion_cliente_potencial,
     inferir_tipo_de_servicio,
     is_persona_natural,
@@ -279,6 +283,8 @@ async def _workflow_awaiting_remaining_information(
         get_informacion_cliente_potencial,
         is_valid_item,
         is_valid_city,
+        es_solicitud_de_mudanza,
+        es_solicitud_de_paqueteo,
         get_human_help,
         inferir_tipo_de_servicio,
         customer_requested_email,
@@ -339,16 +345,42 @@ async def _workflow_awaiting_remaining_information(
                 interaction_data,
             )
 
-        if "is_valid_city" in tool_results:
-            city_validation_result = tool_results["is_valid_city"]
-            if isinstance(city_validation_result, str):
+        if tool_results.get("es_solicitud_de_mudanza"):
+            return (
+                [
+                    InteractionMessage(
+                        role=InteractionType.MODEL,
+                        message=PROMPT_SERVICIO_NO_PRESTADO_MUDANZA,
+                    )
+                ],
+                ClientePotencialState.CONVERSATION_FINISHED,
+                None,
+                interaction_data,
+            )
+
+        if tool_results.get("es_solicitud_de_paqueteo"):
+            return (
+                [
+                    InteractionMessage(
+                        role=InteractionType.MODEL,
+                        message=PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO,
+                    )
+                ],
+                ClientePotencialState.CONVERSATION_FINISHED,
+                None,
+                interaction_data,
+            )
+
+        validation_checks = {
+            "is_valid_item": tool_results.get("is_valid_item"),
+            "is_valid_city": tool_results.get("is_valid_city"),
+        }
+
+        for check, result in validation_checks.items():
+            if result and (isinstance(result, str)):
                 interaction_data["messages_after_finished_count"] = 0
                 return (
-                    [
-                        InteractionMessage(
-                            role=InteractionType.MODEL, message=city_validation_result
-                        )
-                    ],
+                    [InteractionMessage(role=InteractionType.MODEL, message=result)],
                     ClientePotencialState.CONVERSATION_FINISHED,
                     None,
                     interaction_data,
