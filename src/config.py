@@ -1,12 +1,13 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Optional
+from typing import Any, Optional
+from pydantic import PostgresDsn, field_validator
 
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Gemini FastAPI"
 
     # Database
-    DATABASE_URL: str
+    DATABASE_URL: PostgresDsn
 
     # Google Service Account Credentials
     GOOGLE_SA_TYPE: str = "service_account"
@@ -34,8 +35,23 @@ class Settings(BaseSettings):
     GOOGLE_CLOUD_LOCATION: Optional[str] = None
     GOOGLE_API_KEY: Optional[str] = None
 
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def strip_quotes_from_db_url(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            return v.strip('"')
+        return v
+
+    @field_validator("GOOGLE_SA_PRIVATE_KEY", mode="before")
+    @classmethod
+    def strip_quotes_from_private_key(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            return v.strip('"')
+        return v
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
+
 
 settings = Settings()

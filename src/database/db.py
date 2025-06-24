@@ -1,11 +1,14 @@
 import sys
+import logging
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from src.config import settings
 
-engine = create_async_engine(settings.DATABASE_URL, pool_pre_ping=True)
+logger = logging.getLogger(__name__)
+
+engine = create_async_engine(str(settings.DATABASE_URL), pool_pre_ping=True)
 
 AsyncSessionFactory = sessionmaker(
     bind=engine, class_=AsyncSession, expire_on_commit=False
@@ -28,8 +31,8 @@ async def test_db_connection():
     try:
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
-            print("Database connection successful.")
+            logger.info("Database connection successful.")
             return True
     except Exception as e:
-        print(f"Database connection failed: {e}", file=sys.stderr)
+        logger.error(f"Database connection failed: {e}", exc_info=True)
         raise

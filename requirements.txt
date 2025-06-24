@@ -1,9 +1,18 @@
+# Web framework
 fastapi
-uvicorn[standard]
-pydantic-settings
+uvicorn
+gunicorn
+
+# Database
+sqlalchemy
+alembic
+asyncpg
+psycopg2-binary
+
+# Google services
 google-genai
-asyncpg
-SQLAlchemy
-asyncpg
-psycopg[binary]
-greenlet
+gspread
+google-auth-oauthlib
+
+# Configuration
+pydantic-settings
