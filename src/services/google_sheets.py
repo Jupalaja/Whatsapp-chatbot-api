@@ -14,16 +14,14 @@ class GoogleSheetsService:
     A service to interact with the Google Sheets API.
     """
 
-    def __init__(self, credentials_path: str):
-        self.creds = self._authenticate(credentials_path)
+    def __init__(self):
+        self.creds = self._authenticate()
         self.client = gspread.authorize(self.creds)
 
-    def _authenticate(self, credentials_path: str) -> Credentials:
+    def _authenticate(self) -> Credentials:
         """
-        Authenticates with Google Sheets using service account credentials.
-
-        Args:
-            credentials_path: The path to the service account JSON file.
+        Authenticates with Google Sheets using service account credentials
+        from environment variables.
 
         Returns:
             The authenticated credentials object.
@@ -33,18 +31,30 @@ class GoogleSheetsService:
                 "https://www.googleapis.com/auth/spreadsheets",
                 "https://www.googleapis.com/auth/drive.file",
             ]
-            creds = Credentials.from_service_account_file(
-                credentials_path, scopes=scopes
+
+            # Handle escaped newlines in the private key from environment variables
+            private_key = settings.GOOGLE_SA_PRIVATE_KEY.replace("\\n", "\n")
+
+            service_account_info = {
+                "type": settings.GOOGLE_SA_TYPE,
+                "project_id": settings.GOOGLE_SA_PROJECT_ID,
+                "private_key_id": settings.GOOGLE_SA_PRIVATE_KEY_ID,
+                "private_key": private_key,
+                "client_email": settings.GOOGLE_SA_CLIENT_EMAIL,
+                "client_id": settings.GOOGLE_SA_CLIENT_ID,
+                "auth_uri": settings.GOOGLE_SA_AUTH_URI,
+                "token_uri": settings.GOOGLE_SA_TOKEN_URI,
+                "auth_provider_x509_cert_url": settings.GOOGLE_SA_AUTH_PROVIDER_X509_CERT_URL,
+                "client_x509_cert_url": settings.GOOGLE_SA_CLIENT_X509_CERT_URL,
+            }
+
+            creds = Credentials.from_service_account_info(
+                service_account_info, scopes=scopes
             )
             logger.info("Successfully authenticated with Google Sheets.")
             return creds
-        except FileNotFoundError:
-            logger.error(
-                f"Google Sheets credentials file not found at: {credentials_path}"
-            )
-            raise
         except Exception as e:
-            logger.error(f"Failed to authenticate with Google Sheets: {e}")
+            logger.error(f"Failed to authenticate with Google Sheets: {e}", exc_info=True)
             raise
 
     def get_worksheet(

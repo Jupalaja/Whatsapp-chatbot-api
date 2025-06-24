@@ -37,9 +37,7 @@ async def lifespan(app: FastAPI):
     logger.info("Google GenAI Client initialized.")
 
     try:
-        app.state.sheets_service = GoogleSheetsService(
-            credentials_path=settings.GOOGLE_SECRETS_JSON_PATH
-        )
+        app.state.sheets_service = GoogleSheetsService()
         logger.info("Google Sheets Service initialized.")
     except Exception as e:
         logger.error(f"Failed to initialize Google Sheets Service: {e}")
