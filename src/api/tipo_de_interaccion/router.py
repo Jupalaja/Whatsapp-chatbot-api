@@ -56,6 +56,16 @@ async def handle(
                 interaction.interaction_data["classifiedAs"]
             )
 
+    if classified_as:
+        return TipoDeInteraccionResponse(
+            sessionId=interaction_request.sessionId,
+            messages=[],
+            toolCall=None,
+            clasificacion=None,
+            state=interaction.state if interaction else None,
+            classifiedAs=classified_as,
+        )
+
     history_messages.append(interaction_request.message)
 
     user_message_count = sum(
@@ -91,70 +101,6 @@ async def handle(
             classifiedAs=classified_as,
         )
 
-    if classified_as:
-        try:
-            genai_history = await get_genai_history(history_messages)
-            chat_config = types.GenerateContentConfig(
-                tools=[obtener_ayuda_humana],
-                system_instruction=CONTACTO_BASE_SYSTEM_PROMPT,
-                automatic_function_calling=types.AutomaticFunctionCallingConfig(
-                    disable=True
-                ),
-            )
-            response_chat = await client.aio.models.generate_content(
-                model=GEMINI_MODEL, contents=genai_history, config=chat_config
-            )
-
-            assistant_message = None
-            tool_call_name = None
-
-            if response_chat.function_calls:
-                function_call = response_chat.function_calls[0]
-                if function_call.name == "obtener_ayuda_humana":
-                    tool_call_name = function_call.name
-                    logger.info("User requires human help")
-                    assistant_text = obtener_ayuda_humana()
-                    assistant_message = InteractionMessage(
-                        role=InteractionType.MODEL, message=assistant_text
-                    )
-
-            if response_chat.text and not assistant_message:
-                assistant_message = InteractionMessage(
-                    role=InteractionType.MODEL, message=response_chat.text
-                )
-
-            if not assistant_message:
-                assistant_message = InteractionMessage(
-                    role=InteractionType.MODEL,
-                    message="No he podido procesar tu solicitud. Un humano te ayudará.",
-                )
-                tool_call_name = "obtener_ayuda_humana"
-
-            new_assistant_messages = [assistant_message]
-            history_messages.extend(new_assistant_messages)
-
-            if interaction:
-                interaction.messages = [msg.model_dump() for msg in history_messages]
-
-            await db.commit()
-
-            return TipoDeInteraccionResponse(
-                sessionId=interaction_request.sessionId,
-                messages=new_assistant_messages,
-                toolCall=tool_call_name,
-                classifiedAs=classified_as,
-                state=interaction.state,
-            )
-        except errors.APIError as e:
-            logger.error(f"Gemini API Error: {e}")
-            raise HTTPException(status_code=500, detail=f"Gemini API Error: {e!s}")
-        except Exception as e:
-            logger.error(f"An unexpected error occurred: {e}", exc_info=True)
-            raise HTTPException(
-                status_code=500,
-                detail="An unexpected error occurred. Check server logs and environment variables.",
-            )
-
     try:
         (
             new_assistant_messages,
@@ -176,7 +122,6 @@ async def handle(
             )
             db.add(interaction)
 
-        classified_as = None
         if clasificacion:
             high_confidence_categories = [
                 p.categoria
