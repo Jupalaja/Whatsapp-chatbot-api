@@ -20,6 +20,7 @@ from src.shared.schemas import InteractionMessage
 from src.shared.tools import obtener_ayuda_humana
 from src.shared.utils.history import get_genai_history
 from src.services.google_sheets import GoogleSheetsService
+from ...shared.utils.functions import summarize_user_request
 
 logger = logging.getLogger(__name__)
 
@@ -113,9 +114,14 @@ async def handle_in_progress_cliente_activo(
         if function_call.name == "clasificar_solicitud_cliente_activo":
             categoria = function_call.args.get("categoria")
             interaction_data["categoria"] = categoria
-            interaction_data["descripcion_de_necesidad"] = (
+            user_message = (
                 history_messages[-1].message if history_messages else ""
             )
+            if user_message:
+                summary = await summarize_user_request(user_message, client)
+                interaction_data["descripcion_de_necesidad"] = summary
+            else:
+                interaction_data["descripcion_de_necesidad"] = ""
 
             if categoria == CategoriaClienteActivo.TRAZABILIDAD.value:
                 assistant_message = InteractionMessage(

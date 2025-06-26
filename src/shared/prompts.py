@@ -8,3 +8,5 @@ español y vas directo al grano.
 AYUDA_HUMANA_PROMPT = """
 Un humano te atenderá en breve
 """
+
+PROMPT_RESUMIDOR="Resume la siguiente solicitud de un cliente en una frase corta y concisa: '{user_message}'"
