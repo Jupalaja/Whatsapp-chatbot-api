@@ -12,6 +12,7 @@ from src.api.cliente_activo import router as cliente_activo
 from src.api.proveedor_potencial import router as proveedor_potencial
 from src.api.usuario_administrativo import router as usuario_administrativo
 from src.api.candidato_a_empleo import router as candidato_a_empleo
+from src.api.transportista import router as transportista
 from src.config import settings
 from src.database.db import engine, test_db_connection
 from src.services.google_sheets import GoogleSheetsService
@@ -63,6 +64,7 @@ app.include_router(cliente_activo.router, prefix="/api/v1", tags=["Cliente Activ
 app.include_router(proveedor_potencial.router, prefix="/api/v1", tags=["Proveedor Potencial"])
 app.include_router(usuario_administrativo.router, prefix="/api/v1", tags=["Usuario Administrativo"])
 app.include_router(candidato_a_empleo.router, prefix="/api/v1", tags=["Candidato a Empleo"])
+app.include_router(transportista.router, prefix="/api/v1", tags=["Transportista"])
 
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
@@ -77,3 +79,4 @@ async def health_check(request: Request):
         db_connection="ok" if db_ok else "failed",
         sheets_connection="ok" if sheets_ok else "failed",
     )
+
