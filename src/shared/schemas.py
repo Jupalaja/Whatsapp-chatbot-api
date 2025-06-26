@@ -33,6 +33,7 @@ class InteractionResponse(BaseModel):
     messages: List[InteractionMessage]
     toolCall: Optional[str] = None
     state: Optional[str] = None
+    classifiedAs: Optional[CategoriaClasificacion] = None
 
 
 CategoriaClasificacionLiteral = Literal[
@@ -60,4 +61,3 @@ class Clasificacion(BaseModel):
 
 class TipoDeInteraccionResponse(InteractionResponse):
     clasificacion: Optional[Clasificacion] = None
-    classifiedAs: Optional[CategoriaClasificacion] = None
