@@ -98,7 +98,7 @@ async def handle_in_progress_transportista(
             categoria = function_call.args.get("categoria")
             interaction_data["tipo_de_solicitud"] = categoria
 
-            if categoria == CategoriaTransportista.PAGO_DE_MANIFIESTOS.value:
+            if categoria == CategoriaTransportista.MANIFIESTOS.value:
                 assistant_message = InteractionMessage(
                     role=InteractionType.MODEL, message=PROMPT_PAGO_DE_MANIFIESTOS
                 )

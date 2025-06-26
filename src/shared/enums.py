@@ -40,7 +40,7 @@ class CategoriaUsuarioAdministrativo(str, Enum):
 
 
 class CategoriaTransportista(str, Enum):
-    PAGO_DE_MANIFIESTOS = "PAGO_DE_MANIFIESTOS"
+    MANIFIESTOS = "MANIFIESTOS"
     ENTURNAMIENTOS = "ENTURNAMIENTOS"
     APP_CONDUCTORES = "APP_CONDUCTORES"
 
