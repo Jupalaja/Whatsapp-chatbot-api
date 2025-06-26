@@ -23,3 +23,10 @@ class TipoDeServicio(str, Enum):
     DISTRIBUCION = "DISTRIBUCION"
     ALMACENAMIENTO = "ALMACENAMIENTO"
     ITR = "ITR"  # Recibo de Traslado de Intercambio
+
+
+class CategoriaClienteActivo(str, Enum):
+    TRAZABILIDAD = "TRAZABILIDAD"
+    BLOQUEOS_CARTERA = "BLOQUEOS_CARTERA"
+    FACTURACION = "FACTURACION"
+    OTRO = "OTRO"

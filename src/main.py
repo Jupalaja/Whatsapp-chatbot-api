@@ -8,6 +8,7 @@ from src.api.chat import router as chat
 from src.api.interaction import router as interaction
 from src.api.cliente_potencial import router as cliente_potencial
 from src.api.tipo_de_interaccion import router as tipo_de_interaccion
+from src.api.cliente_activo import router as cliente_activo
 from src.config import settings
 from src.database.db import engine, test_db_connection
 from src.services.google_sheets import GoogleSheetsService
@@ -55,6 +56,7 @@ app.include_router(chat.router, prefix="/api/v1", tags=["Chat"])
 app.include_router(interaction.router, prefix="/api/v1", tags=["Interaction"])
 app.include_router(tipo_de_interaccion.router, prefix="/api/v1", tags=["Tipo de Interacción"])
 app.include_router(cliente_potencial.router, prefix="/api/v1", tags=["Cliente Potencial"])
+app.include_router(cliente_activo.router, prefix="/api/v1", tags=["Cliente Activo"])
 
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
