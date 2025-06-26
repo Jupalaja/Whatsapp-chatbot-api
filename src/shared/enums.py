@@ -32,3 +32,8 @@ class CategoriaClienteActivo(str, Enum):
     BLOQUEOS_CARTERA = "BLOQUEOS_CARTERA"
     FACTURACION = "FACTURACION"
     OTRO = "OTRO"
+
+
+class CategoriaUsuarioAdministrativo(str, Enum):
+    RETEFUENTE = "RETEFUENTE"
+    CERTIFICADO_LABORAL = "CERTIFICADO_LABORAL"
