@@ -13,6 +13,7 @@ from src.shared.prompts import AYUDA_HUMANA_PROMPT
 from src.shared.schemas import InteractionMessage
 from src.shared.tools import obtener_ayuda_humana
 from src.shared.utils.history import get_genai_history
+from src.services.google_sheets import GoogleSheetsService
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,7 @@ async def handle_in_progress_conversation(
     current_state: ClienteActivoState,
     interaction_data: dict,
     client: genai.Client,
+    sheets_service: Optional[GoogleSheetsService],
 ) -> Tuple[list[InteractionMessage], ClienteActivoState, Optional[str], dict]:
     """
     Handles the main, in-progress conversation states by dispatching to the
@@ -93,9 +95,12 @@ async def handle_in_progress_conversation(
     if current_state == ClienteActivoState.AWAITING_RESOLUTION:
         (
             messages,
-            tool_call,
             next_state,
-        ) = await handle_in_progress_cliente_activo(history_messages, client)
+            tool_call,
+            interaction_data,
+        ) = await handle_in_progress_cliente_activo(
+            history_messages, client, sheets_service, interaction_data
+        )
         return messages, next_state, tool_call, interaction_data
 
     logger.warning(

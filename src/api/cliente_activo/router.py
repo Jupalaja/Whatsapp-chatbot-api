@@ -18,6 +18,7 @@ from src.shared.schemas import (
 )
 from src.shared.constants import CLIENTE_ACTIVO_MESSAGES_UNTIL_HUMAN
 from src.shared.tools import obtener_ayuda_humana
+from src.services.google_sheets import GoogleSheetsService
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -35,6 +36,7 @@ async def handle(
     appending the new message, and saving the updated history.
     """
     client: genai.Client = request.app.state.genai_client
+    sheets_service: GoogleSheetsService = request.app.state.sheets_service
 
     interaction = await db.get(models.Interaction, interaction_request.sessionId)
 
@@ -98,6 +100,7 @@ async def handle(
             current_state=current_state,
             interaction_data=interaction_data,
             client=client,
+            sheets_service=sheets_service,
         )
 
         history_messages.extend(new_assistant_messages)
