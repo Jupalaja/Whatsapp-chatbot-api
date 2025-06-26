@@ -51,7 +51,7 @@ async def _write_cliente_potencial_to_sheet(
     interaction_data: dict, sheets_service: Optional[GoogleSheetsService]
 ):
     if (
-        not settings.GOOGLE_SHEET_ID_CLIENTES_POTENCIALES_EXPORT
+        not settings.GOOGLE_SHEET_ID_EXPORT
         or not sheets_service
     ):
         logger.warning(
@@ -61,7 +61,7 @@ async def _write_cliente_potencial_to_sheet(
 
     try:
         worksheet = sheets_service.get_worksheet(
-            spreadsheet_id=settings.GOOGLE_SHEET_ID_CLIENTES_POTENCIALES_EXPORT,
+            spreadsheet_id=settings.GOOGLE_SHEET_ID_EXPORT,
             worksheet_name="CLIENTES_POTENCIALES",
         )
         if not worksheet:

@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     GOOGLE_SHEET_ID_CLIENTES_POTENCIALES: Optional[str] = (
         "16G1_hvPfn6rVhwVN5inWef1_XRnI4Ge-5hZhFK1SU4E"
     )
-    GOOGLE_SHEET_ID_CLIENTES_POTENCIALES_EXPORT: Optional[str] = (
+    GOOGLE_SHEET_ID_EXPORT: Optional[str] = (
         "1Ya_hzfVc5zRFBKc8581eKagvVwlLyaaRH7dzYRTBR3g"
     )
 
