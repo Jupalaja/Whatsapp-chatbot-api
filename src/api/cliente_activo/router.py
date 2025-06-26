@@ -1,10 +1,13 @@
 import logging
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 import google.genai as genai
 from google.genai import errors
 
 from .handler import handle_cliente_activo
+from .state import ClienteActivoState
 from src.database import models
 from src.database.db import get_db
 from src.shared.enums import InteractionType
@@ -36,10 +39,16 @@ async def handle(
     interaction = await db.get(models.Interaction, interaction_request.sessionId)
 
     history_messages = []
+    current_state = ClienteActivoState.AWAITING_RESOLUTION
+    interaction_data: Optional[dict] = None
     if interaction:
         history_messages = [
             InteractionMessage.model_validate(msg) for msg in interaction.messages
         ]
+        if interaction.state:
+            current_state = ClienteActivoState(interaction.state)
+        if interaction.interaction_data:
+            interaction_data = interaction.interaction_data
 
     history_messages.append(interaction_request.message)
 
@@ -56,13 +65,16 @@ async def handle(
             message=obtener_ayuda_humana(),
         )
         history_messages.append(assistant_message)
+        next_state = ClienteActivoState.HUMAN_ESCALATION
 
         if interaction:
             interaction.messages = [msg.model_dump() for msg in history_messages]
+            interaction.state = next_state.value
         else:
             interaction = models.Interaction(
                 session_id=interaction_request.sessionId,
                 messages=[msg.model_dump() for msg in history_messages],
+                state=next_state.value,
             )
             db.add(interaction)
         await db.commit()
@@ -71,15 +83,20 @@ async def handle(
             sessionId=interaction_request.sessionId,
             messages=[assistant_message],
             toolCall="obtener_ayuda_humana",
-            state=interaction.state if interaction else None,
+            state=interaction.state,
         )
 
     try:
         (
             new_assistant_messages,
+            next_state,
             tool_call_name,
+            new_interaction_data,
         ) = await handle_cliente_activo(
+            session_id=interaction_request.sessionId,
             history_messages=history_messages,
+            current_state=current_state,
+            interaction_data=interaction_data,
             client=client,
         )
 
@@ -87,10 +104,14 @@ async def handle(
 
         if interaction:
             interaction.messages = [msg.model_dump() for msg in history_messages]
+            interaction.state = next_state.value
+            interaction.interaction_data = new_interaction_data
         else:
             interaction = models.Interaction(
                 session_id=interaction_request.sessionId,
                 messages=[msg.model_dump() for msg in history_messages],
+                state=next_state.value,
+                interaction_data=new_interaction_data,
             )
             db.add(interaction)
 
@@ -100,7 +121,7 @@ async def handle(
             sessionId=interaction_request.sessionId,
             messages=new_assistant_messages,
             toolCall=tool_call_name,
-            state=interaction.state if interaction else None,
+            state=interaction.state,
         )
     except errors.APIError as e:
         logger.error(f"Gemini API Error: {e}")

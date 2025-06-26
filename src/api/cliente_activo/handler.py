@@ -2,98 +2,58 @@ import logging
 from typing import Optional, Tuple
 
 import google.genai as genai
-from google.genai import types
 
-from .prompts import (
-    CLIENTE_ACTIVO_SYSTEM_PROMPT,
-    PROMPT_TRAZABILIDAD,
-    PROMPT_BLOQUEOS_CARTERA,
-    PROMPT_FACTURACION,
+from .conversation_flow import (
+    handle_conversation_finished,
+    handle_in_progress_conversation,
 )
-from .tools import clasificar_solicitud_cliente_activo
-from src.shared.constants import GEMINI_MODEL
-from src.shared.enums import InteractionType, CategoriaClienteActivo
+from .state import ClienteActivoState
 from src.shared.schemas import InteractionMessage
-from src.shared.tools import obtener_ayuda_humana
-from src.shared.utils.history import get_genai_history
 
 logger = logging.getLogger(__name__)
 
 
 async def handle_cliente_activo(
-    history_messages: list[InteractionMessage], client: genai.Client
-) -> Tuple[list[InteractionMessage], Optional[str]]:
+    session_id: str,
+    history_messages: list[InteractionMessage],
+    current_state: ClienteActivoState,
+    interaction_data: Optional[dict],
+    client: genai.Client,
+) -> Tuple[list[InteractionMessage], ClienteActivoState, Optional[str], dict]:
     """
-    Handles the conversation flow for an active client.
+    Handles the core logic of the conversation based on its current state.
+
+    This function orchestrates the interaction with the generative model,
+    including tool selection, model calls, and state transitions, by delegating
+    to the appropriate function based on the conversation's state.
 
     Args:
+        session_id: The ID of the current conversation session.
         history_messages: The full message history of the conversation.
+        current_state: The current state of the conversation state machine.
+        interaction_data: The stored data from the interaction.
         client: The configured Google GenAI client.
 
     Returns:
         A tuple containing:
         - A list of new messages from the assistant to be sent to the user.
+        - The next state of the conversation.
         - The name of a tool call if one was triggered for special client-side handling.
+        - The updated interaction data.
     """
-    genai_history = await get_genai_history(history_messages)
-    model = GEMINI_MODEL
+    interaction_data = dict(interaction_data) if interaction_data else {}
 
-    tools = [
-        clasificar_solicitud_cliente_activo,
-        obtener_ayuda_humana,
-    ]
-
-    config = types.GenerateContentConfig(
-        tools=tools,
-        system_instruction=CLIENTE_ACTIVO_SYSTEM_PROMPT,
-        temperature=0.0,
-        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-    )
-
-    response = await client.aio.models.generate_content(
-        model=model, contents=genai_history, config=config
-    )
-
-    assistant_message = None
-    tool_call_name = None
-
-    if response.function_calls:
-        function_call = response.function_calls[0]
-        tool_call_name = function_call.name
-
-        if function_call.name == "clasificar_solicitud_cliente_activo":
-            categoria = function_call.args.get("categoria")
-            if categoria == CategoriaClienteActivo.TRAZABILIDAD.value:
-                assistant_message = InteractionMessage(
-                    role=InteractionType.MODEL, message=PROMPT_TRAZABILIDAD
-                )
-            elif categoria == CategoriaClienteActivo.BLOQUEOS_CARTERA.value:
-                assistant_message = InteractionMessage(
-                    role=InteractionType.MODEL, message=PROMPT_BLOQUEOS_CARTERA
-                )
-            elif categoria == CategoriaClienteActivo.FACTURACION.value:
-                assistant_message = InteractionMessage(
-                    role=InteractionType.MODEL, message=PROMPT_FACTURACION
-                )
-            else:  # OTRO
-                assistant_message = InteractionMessage(
-                    role=InteractionType.MODEL, message=obtener_ayuda_humana()
-                )
-                tool_call_name = "obtener_ayuda_humana"
-        elif function_call.name == "obtener_ayuda_humana":
-            assistant_message = InteractionMessage(
-                role=InteractionType.MODEL, message=obtener_ayuda_humana()
-            )
-
-    if not assistant_message:
-        if response.text:
-            assistant_message = InteractionMessage(
-                role=InteractionType.MODEL, message=response.text
-            )
-        else:
-            assistant_message = InteractionMessage(
-                role=InteractionType.MODEL, message=obtener_ayuda_humana()
-            )
-            tool_call_name = "obtener_ayuda_humana"
-
-    return [assistant_message], tool_call_name
+    if current_state == ClienteActivoState.CONVERSATION_FINISHED:
+        return await handle_conversation_finished(
+            session_id=session_id,
+            history_messages=history_messages,
+            interaction_data=interaction_data,
+            client=client,
+        )
+    else:
+        return await handle_in_progress_conversation(
+            history_messages=history_messages,
+            current_state=current_state,
+            interaction_data=interaction_data,
+            client=client,
+        )
