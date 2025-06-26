@@ -8,8 +8,11 @@ from .handler import handle_tipo_de_interaccion as handle_tipo_de_interaccion
 
 from src.database import models
 from src.database.db import get_db
-from src.shared.enums import InteractionType
-from src.shared.constants import TIPO_DE_INTERACCION_MESSAGES_UNTIL_HUMAN
+from src.shared.enums import InteractionType, CategoriaClasificacion
+from src.shared.constants import (
+    TIPO_DE_INTERACCION_MESSAGES_UNTIL_HUMAN,
+    CLASSIFICATION_THRESHOLD,
+)
 from src.shared.schemas import (
     InteractionMessage,
     InteractionRequest,
@@ -99,12 +102,25 @@ async def handle(
 
         await db.commit()
 
+        classified_as = None
+        if clasificacion:
+            high_confidence_categories = [
+                p.categoria
+                for p in clasificacion.puntuacionesPorCategoria
+                if p.puntuacionDeConfianza > CLASSIFICATION_THRESHOLD
+            ]
+            if len(high_confidence_categories) == 1:
+                classified_as = CategoriaClasificacion(high_confidence_categories[0])
+            elif len(high_confidence_categories) > 1:
+                classified_as = CategoriaClasificacion.OTRO
+
         return TipoDeInteraccionResponse(
             sessionId=interaction_request.sessionId,
             messages=new_assistant_messages,
             toolCall=tool_call_name,
             clasificacion=clasificacion,
             state=interaction.state,
+            classifiedAs=classified_as,
         )
     except errors.APIError as e:
         logger.error(f"Gemini API Error: {e}")

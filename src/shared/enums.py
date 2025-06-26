@@ -14,6 +14,7 @@ class CategoriaClasificacion(str, Enum):
     PROVEEDOR_POTENCIAL = "PROVEEDOR_POTENCIAL"
     USUARIO_ADMINISTRATIVO = "USUARIO_ADMINISTRATIVO"
     CANDIDATO_A_EMPLEO = "CANDIDATO_A_EMPLEO"
+    OTRO = "OTRO"
 
 
 class TipoDeServicio(str, Enum):

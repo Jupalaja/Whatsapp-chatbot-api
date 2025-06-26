@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import List, Literal, Optional
 
-from src.shared.enums import InteractionType
+from src.shared.enums import InteractionType, CategoriaClasificacion
 
 
 class ChatRequest(BaseModel):
@@ -60,3 +60,4 @@ class Clasificacion(BaseModel):
 
 class TipoDeInteraccionResponse(InteractionResponse):
     clasificacion: Optional[Clasificacion] = None
+    classifiedAs: Optional[CategoriaClasificacion] = None
