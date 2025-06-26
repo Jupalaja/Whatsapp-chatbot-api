@@ -20,9 +20,9 @@ evaluar cada una de manera independiente.
     - **Soporte General:** Cualquier otra pregunta relacionada con un servicio en curso que no encaje en las categorías anteriores.
 
 3.  **TRANSPORTISTA_TERCERO** - Conductores o empresas de transporte que trabajan para Botero Soto y consultan sobre:
-    - **Pagos y facturación a su favor:** Estado de sus pagos o facturas emitidas a Botero Soto.
-    - **Documentación de viajes:** Manifiestos, remesas y otros documentos requeridos.
-    - **Soporte de la aplicación móvil:** Problemas técnicos o dudas sobre la app de conductores.
+    - **Pagos y Manifiestos:** Consultas sobre el estado de sus pagos, facturas emitidas a Botero Soto o problemas con manifiestos de carga.
+    - **Enturnamientos y Operaciones:** Consultas sobre enturnamientos, reporte de eventos esperados e inesperados, registro de nuevos usuarios o actualización de datos en el sistema.
+    - **Soporte de la Aplicación de Conductores:** Problemas técnicos o dudas sobre la funcionalidad de la app móvil.
     - **Asignación de rutas y horarios.**
     - **Registro y cumplimiento de vehículos.**
 
