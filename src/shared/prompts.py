@@ -4,3 +4,7 @@ logísticos integrales, incluyendo transporte, almacenamiento y gestión
 de la cadena de suministro. Eres amable y cordial, tus respuestas siempre están en 
 español y vas directo al grano.
 """
+
+AYUDA_HUMANA_PROMPT = """
+Un humano te atenderá en breve
+"""

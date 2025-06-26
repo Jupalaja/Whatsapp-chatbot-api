@@ -25,7 +25,7 @@ Mantén siempre un tono amable, profesional y ve directo al grano.
 """
 
 PROMPT_ASK_FOR_NIT="""
-¡Hola! Soy Sotobot, tu asistente virtual. Para empezar, ¿podrías indicarme el NIT de tu empresa?
+¡Perfecto! Para brindarte ayuda con tu cotización, ¿podrías indicarme el NIT de tu empresa?
 """
 
 PROMPT_AGENCIAMIENTO_DE_CARGA = """
