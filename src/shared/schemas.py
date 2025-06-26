@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Literal, Optional
 
 from src.shared.enums import InteractionType, CategoriaClasificacion
@@ -24,7 +24,7 @@ class InteractionMessage(BaseModel):
 
 
 class InteractionRequest(BaseModel):
-    sessionId: str
+    sessionId: str = Field(..., min_length=16)
     message: InteractionMessage
 
 
