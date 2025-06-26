@@ -2,9 +2,9 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 import google.genai as genai
-from google.genai import errors
+from google.genai import errors, types
 
-from .handler import handle_tipo_de_interaccion as handle_tipo_de_interaccion
+from .handler import handle_tipo_de_interaccion
 
 from src.database import models
 from src.database.db import get_db
@@ -12,13 +12,16 @@ from src.shared.enums import InteractionType, CategoriaClasificacion
 from src.shared.constants import (
     TIPO_DE_INTERACCION_MESSAGES_UNTIL_HUMAN,
     CLASSIFICATION_THRESHOLD,
+    GEMINI_MODEL,
 )
+from src.shared.prompts import CONTACTO_BASE_SYSTEM_PROMPT
 from src.shared.schemas import (
     InteractionMessage,
     InteractionRequest,
     TipoDeInteraccionResponse,
 )
 from src.shared.tools import obtener_ayuda_humana
+from src.shared.utils.history import get_genai_history
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -40,10 +43,18 @@ async def handle(
     interaction = await db.get(models.Interaction, interaction_request.sessionId)
 
     history_messages = []
+    classified_as = None
     if interaction:
         history_messages = [
             InteractionMessage.model_validate(msg) for msg in interaction.messages
         ]
+        if (
+            interaction.interaction_data
+            and "classifiedAs" in interaction.interaction_data
+        ):
+            classified_as = CategoriaClasificacion(
+                interaction.interaction_data["classifiedAs"]
+            )
 
     history_messages.append(interaction_request.message)
 
@@ -77,7 +88,72 @@ async def handle(
             toolCall="obtener_ayuda_humana",
             clasificacion=None,
             state=interaction.state,
+            classifiedAs=classified_as,
         )
+
+    if classified_as:
+        try:
+            genai_history = await get_genai_history(history_messages)
+            chat_config = types.GenerateContentConfig(
+                tools=[obtener_ayuda_humana],
+                system_instruction=CONTACTO_BASE_SYSTEM_PROMPT,
+                automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                    disable=True
+                ),
+            )
+            response_chat = await client.aio.models.generate_content(
+                model=GEMINI_MODEL, contents=genai_history, config=chat_config
+            )
+
+            assistant_message = None
+            tool_call_name = None
+
+            if response_chat.function_calls:
+                function_call = response_chat.function_calls[0]
+                if function_call.name == "obtener_ayuda_humana":
+                    tool_call_name = function_call.name
+                    logger.info("User requires human help")
+                    assistant_text = obtener_ayuda_humana()
+                    assistant_message = InteractionMessage(
+                        role=InteractionType.MODEL, message=assistant_text
+                    )
+
+            if response_chat.text and not assistant_message:
+                assistant_message = InteractionMessage(
+                    role=InteractionType.MODEL, message=response_chat.text
+                )
+
+            if not assistant_message:
+                assistant_message = InteractionMessage(
+                    role=InteractionType.MODEL,
+                    message="No he podido procesar tu solicitud. Un humano te ayudará.",
+                )
+                tool_call_name = "obtener_ayuda_humana"
+
+            new_assistant_messages = [assistant_message]
+            history_messages.extend(new_assistant_messages)
+
+            if interaction:
+                interaction.messages = [msg.model_dump() for msg in history_messages]
+
+            await db.commit()
+
+            return TipoDeInteraccionResponse(
+                sessionId=interaction_request.sessionId,
+                messages=new_assistant_messages,
+                toolCall=tool_call_name,
+                classifiedAs=classified_as,
+                state=interaction.state,
+            )
+        except errors.APIError as e:
+            logger.error(f"Gemini API Error: {e}")
+            raise HTTPException(status_code=500, detail=f"Gemini API Error: {e!s}")
+        except Exception as e:
+            logger.error(f"An unexpected error occurred: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail="An unexpected error occurred. Check server logs and environment variables.",
+            )
 
     try:
         (
