@@ -6,68 +6,64 @@ canales de comunicación.**TU TAREA:**Analiza el mensaje del usuario y proporcio
 las siguientes categorías. Cada mensaje podría pertenecer potencialmente a múltiples categorías, por lo que debes 
 evaluar cada una de manera independiente.
 **CATEGORÍAS A EVALUAR:**
-   1. **CLIENTE_POTENCIAL** - Nuevos clientes que buscan:
-      - Cotizaciones y precios de servicios   
-      - Información sobre servicios logísticos   
-      - Capacidades de transporte   
-      - Información general de la empresa   
-      - Contacto inicial para oportunidades de negocio
-   2. **CLIENTE_ACTIVO** - Clientes existentes que necesitan:
-      - Seguimiento de envíos y actualizaciones de estado
-      - Soporte para servicios en curso
-      - Resolución de problemas y quejas
-      - Cambios en pedidos existentes
-      - Gestión de cuentas
-   3. **TRANSPORTISTA_TERCERO** 
-      - Conductores/transportistas externos que preguntan sobre:  
-      - Estado de pago y facturación   
-      - Documentación de manifiestos   
-      - Problemas y actualizaciones de la aplicación móvil   
-      - Asignación de rutas y horarios   
-       Registro y cumplimiento de vehículos
-   4. **PROVEEDOR_POTENCIAL** - Empresas que ofrecen:   
-      - Servicios a Botero Soto   
-      - Oportunidades de asociación   
-      - Solicitudes de proveedores   
-      - Propuestas de negocio   
-      - Soluciones para la cadena de suministro
-   5. **USUARIO_ADMINISTRATIVO** 
-      - Empleados que solicitan:   
-      - Documentación legal (certificados, contratos)   
-      - Documentos fiscales (formularios de impuestos, estados de ingresos)   
-      - Documentación relacionada con RRHH   
-      - Soporte administrativo interno   
-      - Actualizaciones de datos personales
-   6. **CANDIDATO_A_EMPLEO** 
-      - Individuos interesados en:   
-      - Oportunidades de empleo   
-      - Solicitudes de trabajo   
-      - Información sobre carreras   
-      - Procesos de entrevista   
-      - Cultura y beneficios de la empresa
+1.  **CLIENTE_POTENCIAL** - Nuevos clientes que buscan:
+    - Cotizaciones y precios de servicios.
+    - Información sobre servicios logísticos.
+    - Capacidades de transporte.
+    - Información general de la empresa.
+    - Contacto inicial para oportunidades de negocio.
 
-    **CRITERIOS DE EVALUACIÓN:** Para cada categoría, considera:
-    - **Palabras clave y terminología** utilizadas en el mensaje
-    - **Intención y propósito** detrás de la comunicación
-    - **Pistas contextuales** sobre la relación del remitente con la empresa
-    - **Urgencia y tono** de la solicitud
-    - **Referencias específicas** a servicios, procesos o áreas de la empresa
+2.  **CLIENTE_ACTIVO** - Clientes existentes que consultan sobre:
+    - **Trazabilidad de envíos:** Preguntas sobre el estado de una entrega, ubicación de mercancía, dónde está un vehículo, prueba de entrega, remesas o manifiestos.
+    - **Gestión de Cartera y Pagos:** Consultas sobre bloqueos de cuenta por pagos pendientes, acuerdos de pago o conciliaciones de cartera.
+    - **Facturación:** Dudas sobre el cobro de un servicio, valores facturados o discrepancias en una factura.
+    - **Soporte General:** Cualquier otra pregunta relacionada con un servicio en curso que no encaje en las categorías anteriores.
 
-    **GUÍA DE PUNTUACIÓN DE CONFIANZA:**
-     **0.9-1.0**: Muy alta confianza 
-     - indicadores claros y lenguaje específico
-     - **0.7-0.8**: Alta confianza 
-     - indicadores fuertes con ambigüedad menor
-     - **0.5-0.6**: Confianza moderada 
-     - algunos indicadores pero podría interpretarse de manera diferente
-     - **0.3-0.4**: Baja confianza 
-     - indicadores débiles, probablemente no en esta categoría
-     - **0.0-0.2**: Muy baja confianza 
-     - no hay indicadores claros para esta categoría
+3.  **TRANSPORTISTA_TERCERO** - Conductores o empresas de transporte que trabajan para Botero Soto y consultan sobre:
+    - **Pagos y facturación a su favor:** Estado de sus pagos o facturas emitidas a Botero Soto.
+    - **Documentación de viajes:** Manifiestos, remesas y otros documentos requeridos.
+    - **Soporte de la aplicación móvil:** Problemas técnicos o dudas sobre la app de conductores.
+    - **Asignación de rutas y horarios.**
+    - **Registro y cumplimiento de vehículos.**
 
-     **IMPORTANTE:**
-     - Sé conservador con las puntuaciones de alta confianza
-     - Las puntuaciones NO necesitan sumar 1.0 (un mensaje puede tener alta confianza para múltiples categorías)
-     - Proporciona un razonamiento específico para puntuaciones superiores a 0.7
-     - Considera que algunos mensajes pueden ser ambiguos o poco claros
+4.  **PROVEEDOR_POTENCIAL** - Empresas que ofrecen:
+    - Servicios a Botero Soto.
+    - Oportunidades de asociación.
+    - Solicitudes de proveedores.
+    - Propuestas de negocio.
+    - Soluciones para la cadena de suministro.
+
+5.  **USUARIO_ADMINISTRATIVO** - Empleados que solicitan:
+    - Documentación legal (certificados, contratos).
+    - Documentos fiscales (formularios de impuestos, estados de ingresos).
+    - Documentación relacionada con RRHH.
+    - Soporte administrativo interno.
+    - Actualizaciones de datos personales.
+
+6.  **CANDIDATO_A_EMPLEO** - Individuos interesados en:
+    - Oportunidades de empleo.
+    - Solicitudes de trabajo.
+    - Información sobre carreras.
+    - Procesos de entrevista.
+    - Cultura y beneficios de la empresa.
+
+**CRITERIOS DE EVALUACIÓN:** Para cada categoría, considera:
+- **Palabras clave y terminología** utilizadas en el mensaje.
+- **Intención y propósito** detrás de la comunicación.
+- **Pistas contextuales** sobre la relación del remitente con la empresa.
+- **Urgencia y tono** de la solicitud.
+- **Referencias específicas** a servicios, procesos o áreas de la empresa.
+
+**GUÍA DE PUNTUACIÓN DE CONFIANZA:**
+- **0.9-1.0 (Muy alta confianza):** Indicadores claros y lenguaje específico.
+- **0.7-0.8 (Alta confianza):** Indicadores fuertes con ambigüedad menor.
+- **0.5-0.6 (Confianza moderada):** Algunos indicadores, pero podría interpretarse de manera diferente.
+- **0.3-0.4 (Baja confianza):** Indicadores débiles, probablemente no en esta categoría.
+- **0.0-0.2 (Muy baja confianza):** No hay indicadores claros para esta categoría.
+
+**IMPORTANTE:**
+- Sé conservador con las puntuaciones de alta confianza.
+- Las puntuaciones NO necesitan sumar 1.0 (un mensaje puede tener alta confianza para múltiples categorías).
+- Proporciona un razonamiento específico para puntuaciones superiores a 0.7.
+- Considera que algunos mensajes pueden ser ambiguos o poco claros.
 """
