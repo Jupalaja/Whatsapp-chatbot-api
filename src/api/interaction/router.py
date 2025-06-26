@@ -6,7 +6,7 @@ from google.genai import errors, types
 
 from src.database import models
 from src.database.db import get_db
-from src.shared.enums import InteractionType
+from src.shared.enums import InteractionType, CategoriaClasificacion
 from src.shared.constants import GEMINI_MODEL
 from src.shared.prompts import CONTACTO_BASE_SYSTEM_PROMPT
 from src.shared.tools import obtener_ayuda_humana
@@ -126,6 +126,15 @@ async def get_interaction_history(sessionID: str, db: AsyncSession = Depends(get
         InteractionMessage.model_validate(msg) for msg in interaction.messages
     ]
 
+    classified_as = None
+    if interaction.interaction_data:
+        classified_as_value = interaction.interaction_data.get("classifiedAs")
+        if classified_as_value:
+            classified_as = CategoriaClasificacion(classified_as_value)
+
     return InteractionResponse(
-        sessionId=sessionID, messages=history_messages, state=interaction.state
+        sessionId=sessionID,
+        messages=history_messages,
+        state=interaction.state,
+        classifiedAs=classified_as,
     )

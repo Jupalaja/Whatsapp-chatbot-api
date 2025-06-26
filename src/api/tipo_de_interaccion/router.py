@@ -100,8 +100,6 @@ async def handle(
             )
             db.add(interaction)
 
-        await db.commit()
-
         classified_as = None
         if clasificacion:
             high_confidence_categories = [
@@ -113,6 +111,13 @@ async def handle(
                 classified_as = CategoriaClasificacion(high_confidence_categories[0])
             elif len(high_confidence_categories) > 1:
                 classified_as = CategoriaClasificacion.OTRO
+
+        if classified_as:
+            if interaction.interaction_data is None:
+                interaction.interaction_data = {}
+            interaction.interaction_data["classifiedAs"] = classified_as.value
+
+        await db.commit()
 
         return TipoDeInteraccionResponse(
             sessionId=interaction_request.sessionId,
