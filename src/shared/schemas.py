@@ -24,7 +24,7 @@ class InteractionMessage(BaseModel):
 
 
 class InteractionRequest(BaseModel):
-    sessionId: str = Field(..., min_length=5)
+    sessionId: str = Field(..., min_length=4)
     message: InteractionMessage
 
 
