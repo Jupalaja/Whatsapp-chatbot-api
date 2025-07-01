@@ -15,3 +15,4 @@ class Interaction(Base):
     messages = Column(JSONB, nullable=False)
     state = Column(String, nullable=True)
     interaction_data = Column(JSON, nullable=True)
+    user_data = Column(JSON, nullable=True)

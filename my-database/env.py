@@ -45,7 +45,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = settings.DATABASE_URL
+    url = str(settings.DATABASE_URL)
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -75,7 +75,7 @@ async def run_migrations_online() -> None:
 
     """
     connectable = create_async_engine(
-        settings.DATABASE_URL,
+        str(settings.DATABASE_URL),
         poolclass=pool.NullPool,
     )
 
@@ -89,4 +89,3 @@ if context.is_offline_mode():
     run_migrations_offline()
 else:
     asyncio.run(run_migrations_online())
-
