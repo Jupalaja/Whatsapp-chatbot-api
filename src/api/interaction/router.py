@@ -86,11 +86,11 @@ async def handle_interaction(
 
         # Upsert interaction
         if interaction:
-            interaction.messages = [msg.model_dump() for msg in history_messages]
+            interaction.messages = [msg.model_dump(mode="json") for msg in history_messages]
         else:
             interaction = models.Interaction(
                 session_id=interaction_request.sessionId,
-                messages=[msg.model_dump() for msg in history_messages],
+                messages=[msg.model_dump(mode="json") for msg in history_messages],
             )
             db.add(interaction)
 

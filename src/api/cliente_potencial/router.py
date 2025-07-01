@@ -52,7 +52,7 @@ async def handle(
         history_messages.append(assistant_message)
         new_interaction = models.Interaction(
             session_id=interaction_request.sessionId,
-            messages=[msg.model_dump() for msg in history_messages],
+            messages=[msg.model_dump(mode="json") for msg in history_messages],
             state=current_state.value,
         )
         db.add(new_interaction)
@@ -83,13 +83,13 @@ async def handle(
         history_messages.extend(new_assistant_messages)
 
         if interaction:
-            interaction.messages = [msg.model_dump() for msg in history_messages]
+            interaction.messages = [msg.model_dump(mode="json") for msg in history_messages]
             interaction.state = next_state.value
             interaction.interaction_data = new_interaction_data
         else:
             interaction = models.Interaction(
                 session_id=interaction_request.sessionId,
-                messages=[msg.model_dump() for msg in history_messages],
+                messages=[msg.model_dump(mode="json") for msg in history_messages],
                 state=next_state.value,
                 interaction_data=new_interaction_data,
             )
