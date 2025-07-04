@@ -13,11 +13,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application's code into the container
 COPY ./src ./src
 
-# Make port 8000 available to the world outside this container
-EXPOSE 8000
+# Define environment variable for the port, with a default value
+ENV PORT 8000
+
+# Make port $PORT available to the world outside this container
+EXPOSE $PORT
 
 # Define environment variable to allow imports from src
 ENV PYTHONPATH=/app
 
-# Command to run the application
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Command to run the application.
+# uvicorn will automatically use the PORT environment variable.
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0"]
