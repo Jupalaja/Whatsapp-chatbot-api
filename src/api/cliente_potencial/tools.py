@@ -1,21 +1,4 @@
-import unicodedata
-
 from src.shared.enums import TipoDeServicio
-
-
-FORBIDDEN_GOODS_KEYWORDS = {
-    # This content is now in shared/utils/validations.py
-}
-
-
-def _normalize_text(name: str) -> str:
-    """Normalizes a string by removing accents, converting to lowercase, and stripping whitespace."""
-    s = "".join(
-        c
-        for c in unicodedata.normalize("NFD", name)
-        if unicodedata.category(c) != "Mn"
-    )
-    return s.lower().strip()
 
 
 def es_solicitud_de_mudanza(es_mudanza: bool) -> bool:
