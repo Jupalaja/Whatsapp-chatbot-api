@@ -21,8 +21,6 @@ from .prompts import (
 from .state import ClientePotencialState
 from .tools import (
     cliente_solicito_correo,
-    es_solicitud_de_mudanza,
-    es_solicitud_de_paqueteo,
     obtener_informacion_cliente_potencial,
     inferir_tipo_de_servicio,
     es_persona_natural,
@@ -41,7 +39,13 @@ from src.shared.utils.history import (
     get_genai_history,
 )
 from src.services.google_sheets import GoogleSheetsService
-from src.shared.utils.validations import es_ciudad_valida, es_mercancia_valida
+from src.shared.utils.validations import (
+    es_ciudad_valida,
+    es_mercancia_valida,
+    es_solicitud_de_mudanza,
+    es_solicitud_de_paqueteo,
+)
+
 
 logger = logging.getLogger(__name__)
 

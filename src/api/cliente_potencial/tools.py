@@ -1,22 +1,6 @@
 from src.shared.enums import TipoDeServicio
 
 
-def es_solicitud_de_mudanza(es_mudanza: bool) -> bool:
-    """
-    Determina si la solicitud del cliente es para una mudanza.
-    El modelo debe analizar el tipo de mercancía y la descripción del usuario y llamar a esta función con `es_mudanza=True` si corresponde a un servicio de mudanza o trasteo.
-    """
-    return es_mudanza
-
-
-def es_solicitud_de_paqueteo(es_paqueteo: bool) -> bool:
-    """
-    Determina si la solicitud del cliente es para paquetes pequeños.
-    El modelo debe analizar el tipo de mercancía y la descripción del usuario y llamar a esta función con `es_paqueteo=True` si corresponde a un servicio de 'paqueteo' qu consiste en transporte de mercancía de bajo peso y poco tamaño.
-    """
-    return es_paqueteo
-
-
 def inferir_tipo_de_servicio(tipo_de_servicio: str) -> str:
     """
     Valída y estandariza el tipo de servicio logístico inferido por el modelo.

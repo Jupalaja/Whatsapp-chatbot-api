@@ -98,3 +98,19 @@ def es_ciudad_valida(ciudad: str):
     if normalized_ciudad in BLACKLISTED_CITIES:
         return PROMPT_CIUDAD_NO_VALIDA.format(ciudad=ciudad.title())
     return True
+
+
+def es_solicitud_de_mudanza(es_mudanza: bool) -> bool:
+    """
+    Determina si la solicitud del cliente es para una mudanza.
+    El modelo debe analizar el tipo de mercancía y la descripción del usuario y llamar a esta función con `es_mudanza=True` si corresponde a un servicio de mudanza o trasteo.
+    """
+    return es_mudanza
+
+
+def es_solicitud_de_paqueteo(es_paqueteo: bool) -> bool:
+    """
+    Determina si la solicitud del cliente es para paquetes pequeños.
+    El modelo debe analizar el tipo de mercancía y la descripción del usuario y llamar a esta función con `es_paqueteo=True` si corresponde a un servicio de 'paqueteo' qu consiste en transporte de mercancía de bajo peso y poco tamaño.
+    """
+    return es_paqueteo
