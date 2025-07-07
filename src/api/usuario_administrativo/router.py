@@ -16,7 +16,7 @@ from src.shared.schemas import (
     InteractionRequest,
     InteractionResponse,
 )
-from src.shared.constants import CLIENTE_ACTIVO_MESSAGES_UNTIL_HUMAN
+from src.shared.constants import ADMON_MESSAGES_UNTIL_HUMAN
 from src.shared.tools import obtener_ayuda_humana
 from src.services.google_sheets import GoogleSheetsService
 
@@ -59,9 +59,9 @@ async def handle(
     )
 
     # Reusing constant from cliente_activo as the behavior is similar.
-    if user_message_count >= CLIENTE_ACTIVO_MESSAGES_UNTIL_HUMAN:
+    if user_message_count >= ADMON_MESSAGES_UNTIL_HUMAN:
         logger.info(
-            f"User with sessionId {interaction_request.sessionId} has sent more than {CLIENTE_ACTIVO_MESSAGES_UNTIL_HUMAN} messages. Activating human help tool."
+            f"User with sessionId {interaction_request.sessionId} has sent more than {ADMON_MESSAGES_UNTIL_HUMAN} messages. Activating human help tool."
         )
         assistant_message = InteractionMessage(
             role=InteractionType.MODEL,
