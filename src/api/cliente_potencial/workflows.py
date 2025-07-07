@@ -15,8 +15,6 @@ from .prompts import (
     PROMPT_DISCARD_PERSONA_NATURAL,
     PROMPT_EMAIL_GUARDADO_Y_FINALIZAR,
     PROMPT_GET_CUSTOMER_EMAIL_SYSTEM_PROMPT,
-    PROMPT_SERVICIO_NO_PRESTADO_MUDANZA,
-    PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO,
 )
 from .state import ClientePotencialState
 from .tools import (
@@ -44,6 +42,10 @@ from src.shared.utils.validations import (
     es_mercancia_valida,
     es_solicitud_de_mudanza,
     es_solicitud_de_paqueteo,
+)
+from src.shared.prompts import (
+    PROMPT_SERVICIO_NO_PRESTADO_MUDANZA,
+    PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO,
 )
 
 

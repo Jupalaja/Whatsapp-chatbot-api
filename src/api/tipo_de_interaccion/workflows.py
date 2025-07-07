@@ -77,20 +77,65 @@ async def workflow_tipo_de_interaccion(
     )
 
     if response_chat.function_calls:
-        escalation_tool_names = {
-            "es_ciudad_valida",
-            "es_mercancia_valida",
-            "es_solicitud_de_mudanza",
-            "es_solicitud_de_paqueteo",
-        }
-        function_call_names = {fc.name for fc in response_chat.function_calls}
-
-        if "obtener_ayuda_humana" in function_call_names or not function_call_names.isdisjoint(escalation_tool_names):
-            tool_call_name = "obtener_ayuda_humana"
-            logger.info("User requires human help or an escalation tool was called.")
-            assistant_message = InteractionMessage(
-                role=InteractionType.MODEL, message=obtener_ayuda_humana()
-            )
+        # Check if any validation function was called and handle the results
+        for function_call in response_chat.function_calls:
+            if function_call.name == "es_mercancia_valida":
+                # Get the merchandise type from the function args
+                mercancia = function_call.args.get("tipo_mercancia", "")
+                validation_result = es_mercancia_valida(mercancia)
+                
+                # If validation returns a string, it means the merchandise is invalid
+                if isinstance(validation_result, str):
+                    assistant_message = InteractionMessage(
+                        role=InteractionType.MODEL, message=validation_result
+                    )
+                    return [assistant_message], clasificacion, None
+                    
+            elif function_call.name == "es_ciudad_valida":
+                # Get the city from the function args
+                ciudad = function_call.args.get("ciudad", "")
+                validation_result = es_ciudad_valida(ciudad)
+                
+                # If validation returns a string, it means the city is invalid
+                if isinstance(validation_result, str):
+                    assistant_message = InteractionMessage(
+                        role=InteractionType.MODEL, message=validation_result
+                    )
+                    return [assistant_message], clasificacion, None
+                    
+            elif function_call.name == "es_solicitud_de_mudanza":
+                # Get the boolean value from the function args
+                es_mudanza = function_call.args.get("es_mudanza", False)
+                validation_result = es_solicitud_de_mudanza(es_mudanza)
+                
+                # If it's a moving request, show appropriate message
+                if validation_result:
+                    from src.shared.prompts import PROMPT_SERVICIO_NO_PRESTADO_MUDANZA
+                    assistant_message = InteractionMessage(
+                        role=InteractionType.MODEL, message=PROMPT_SERVICIO_NO_PRESTADO_MUDANZA
+                    )
+                    return [assistant_message], clasificacion, None
+                    
+            elif function_call.name == "es_solicitud_de_paqueteo":
+                # Get the boolean value from the function args
+                es_paqueteo = function_call.args.get("es_paqueteo", False)
+                validation_result = es_solicitud_de_paqueteo(es_paqueteo)
+                
+                # If it's a package request, show appropriate message
+                if validation_result:
+                    from src.shared.prompts import PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO
+                    assistant_message = InteractionMessage(
+                        role=InteractionType.MODEL, message=PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO
+                    )
+                    return [assistant_message], clasificacion, None
+                    
+            elif function_call.name == "obtener_ayuda_humana":
+                tool_call_name = "obtener_ayuda_humana"
+                logger.info("User requires human help.")
+                assistant_message = InteractionMessage(
+                    role=InteractionType.MODEL, message=obtener_ayuda_humana()
+                )
+                return [assistant_message], clasificacion, tool_call_name
 
     if not assistant_message and response_chat.text:
         assistant_message = InteractionMessage(

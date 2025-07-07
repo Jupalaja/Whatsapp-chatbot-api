@@ -95,7 +95,3 @@ PROMPT_EMAIL_GUARDADO_Y_FINALIZAR = "¡Perfecto! Hemos guardado tu correo electr
 PROMPT_ASIGNAR_AGENTE_COMERCIAL = "Te asignaremos un agente comercial para que se ponga en contacto contigo, a continuación te compartiremos su información"
 
 PROMPT_CONTACTAR_AGENTE_ASIGNADO = "Con todo el gusto te comparto el agente comercial que tienen asignado a su cuenta, para que te ayude con el requerimiento que tienen. Se trata de {responsable_comercial}"
-
-PROMPT_SERVICIO_NO_PRESTADO_MUDANZA = "Lo sentimos, no ofrecemos el servicio de mudanzas. Te recomendamos contactar una empresa especializada en mudanzas. Agradecemos tu interés en Botero Soto."
-
-PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO = "Lo sentimos, no ofrecemos el servicio de paqueteo. Para este tipo de envíos te recomendamos contactar a una empresa de mensajería. Agradecemos tu interés en Botero Soto."
