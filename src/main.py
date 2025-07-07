@@ -4,7 +4,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 import google.genai as genai
 
-from src.api.chat import router as chat
 from src.api.chat_router import router as chat_router
 from src.api.interaction import router as interaction
 from src.api.cliente_potencial import router as cliente_potencial
@@ -57,7 +56,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
 
-app.include_router(chat.router, prefix="/api/v1", tags=["Chat"])
 app.include_router(chat_router.router, prefix="/api/v1", tags=["Chat Router"])
 app.include_router(interaction.router, prefix="/api/v1", tags=["Interaction"])
 app.include_router(tipo_de_interaccion.router, prefix="/api/v1", tags=["Tipo de Interacción"])

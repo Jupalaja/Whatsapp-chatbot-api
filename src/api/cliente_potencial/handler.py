@@ -1,15 +1,23 @@
 import logging
-from typing import Optional, Tuple
+from typing import Optional, Any, Literal
 
 import google.genai as genai
 
+from src.shared.state import GlobalState
+
+from .prompts import CLIENTE_POTENCIAL_AUTOPILOT_SYSTEM_PROMPT
 from .state import ClientePotencialState
-from .conversation_flow import (
-    handle_conversation_finished,
-    handle_in_progress_conversation,
+from .workflows import (
+    _workflow_awaiting_nit,
+    _workflow_awaiting_persona_natural_freight_info,
+    _workflow_awaiting_remaining_information,
+    _workflow_customer_asked_for_email_data_sent,
 )
-from src.shared.schemas import InteractionMessage
 from src.services.google_sheets import GoogleSheetsService
+from src.shared.enums import InteractionType
+from src.shared.schemas import InteractionMessage
+from src.shared.tools import obtener_ayuda_humana
+from src.shared.utils.functions import handle_conversation_finished
 
 logger = logging.getLogger(__name__)
 
@@ -21,30 +29,11 @@ async def handle_cliente_potencial(
     interaction_data: Optional[dict],
     client: genai.Client,
     sheets_service: Optional[GoogleSheetsService],
-) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str], Optional[dict]]:
-    """
-    Handles the core logic of the conversation based on its current state.
+) -> tuple[list[InteractionMessage], GlobalState, str | None, dict] | tuple[
+    list[InteractionMessage], ClientePotencialState, str | None, dict] | tuple[
+         list[InteractionMessage], Literal[ClientePotencialState.HUMAN_ESCALATION], str, dict[str, str] | dict[
+             Any, Any]]:
 
-    This function orchestrates the interaction with the generative model,
-    including tool selection, model calls, and state transitions, by delegating
-    to the appropriate function based on the conversation's state.
-
-    Args:
-        session_id: The ID of the current conversation session.
-        history_messages: The full message history of the conversation.
-        current_state: The current state of the conversation state machine.
-        interaction_data: The stored data from the interaction.
-        client: The configured Google GenAI client.
-        sheets_service: The service for interacting with Google Sheets.
-
-    Returns:
-        A tuple containing:
-        - A list of new messages from the assistant to be sent to the user.
-        - The next state of the conversation.
-        - The name of a tool call if one was triggered for special client-side handling.
-        - The updated interaction data.
-    """
-    # Make a mutable copy of interaction_data to ensure changes are tracked
     interaction_data = dict(interaction_data) if interaction_data else {}
 
     if current_state == ClientePotencialState.CONVERSATION_FINISHED:
@@ -53,12 +42,33 @@ async def handle_cliente_potencial(
             history_messages=history_messages,
             interaction_data=interaction_data,
             client=client,
+            autopilot_system_prompt=CLIENTE_POTENCIAL_AUTOPILOT_SYSTEM_PROMPT,
         )
-    else:
-        return await handle_in_progress_conversation(
-            history_messages=history_messages,
-            current_state=current_state,
-            interaction_data=interaction_data,
-            client=client,
-            sheets_service=sheets_service,
+
+    if current_state == ClientePotencialState.AWAITING_NIT:
+        return await _workflow_awaiting_nit(
+            history_messages, interaction_data, client, sheets_service
         )
+    if current_state == ClientePotencialState.AWAITING_PERSONA_NATURAL_FREIGHT_INFO:
+        return await _workflow_awaiting_persona_natural_freight_info(
+            history_messages, interaction_data, client
+        )
+    if current_state == ClientePotencialState.CUSTOMER_ASKED_FOR_EMAIL_DATA_SENT:
+        return await _workflow_customer_asked_for_email_data_sent(
+            history_messages, interaction_data, client, sheets_service
+        )
+    if current_state == ClientePotencialState.AWAITING_REMAINING_INFORMATION:
+        return await _workflow_awaiting_remaining_information(
+            history_messages, interaction_data, client, sheets_service
+        )
+
+    logger.warning(
+        f"Unhandled in-progress state: {current_state}. Escalating to human."
+    )
+    assistant_message_text = obtener_ayuda_humana()
+    tool_call_name = "obtener_ayuda_humana"
+    next_state = ClientePotencialState.HUMAN_ESCALATION
+    assistant_message = InteractionMessage(
+        role=InteractionType.MODEL, message=assistant_message_text
+    )
+    return [assistant_message], next_state, tool_call_name, interaction_data

@@ -1,15 +1,18 @@
 import logging
-from typing import Optional, Tuple
+from typing import Optional, Any
 
 import google.genai as genai
 
-from .conversation_flow import (
+from src.shared.state import GlobalState
+from .prompts import TRANSPORTISTA_AUTOPILOT_SYSTEM_PROMPT
+from .state import TransportistaState
+from .workflows import handle_in_progress_transportista
+from src.services.google_sheets import GoogleSheetsService
+from src.shared.schemas import InteractionMessage
+from src.shared.utils.functions import (
     handle_conversation_finished,
     handle_in_progress_conversation,
 )
-from .state import TransportistaState
-from src.shared.schemas import InteractionMessage
-from src.services.google_sheets import GoogleSheetsService
 
 logger = logging.getLogger(__name__)
 
@@ -21,29 +24,9 @@ async def handle_transportista(
     interaction_data: Optional[dict],
     client: genai.Client,
     sheets_service: Optional[GoogleSheetsService],
-) -> Tuple[list[InteractionMessage], TransportistaState, Optional[str], dict]:
-    """
-    Handles the core logic of the conversation based on its current state.
+) -> tuple[list[InteractionMessage], GlobalState, str | None, dict] | tuple[
+    list[InteractionMessage], Any, str | None, dict]:
 
-    This function orchestrates the interaction with the generative model,
-    including tool selection, model calls, and state transitions, by delegating
-    to the appropriate function based on the conversation's state.
-
-    Args:
-        session_id: The ID of the current conversation session.
-        history_messages: The full message history of the conversation.
-        current_state: The current state of the conversation state machine.
-        interaction_data: The stored data from the interaction.
-        client: The configured Google GenAI client.
-        sheets_service: The service for interacting with Google Sheets.
-
-    Returns:
-        A tuple containing:
-        - A list of new messages from the assistant to be sent to the user.
-        - The next state of the conversation.
-        - The name of a tool call if one was triggered for special client-side handling.
-        - The updated interaction data.
-    """
     interaction_data = dict(interaction_data) if interaction_data else {}
 
     if current_state == TransportistaState.CONVERSATION_FINISHED:
@@ -52,12 +35,15 @@ async def handle_transportista(
             history_messages=history_messages,
             interaction_data=interaction_data,
             client=client,
+            autopilot_system_prompt=TRANSPORTISTA_AUTOPILOT_SYSTEM_PROMPT,
         )
     else:
         return await handle_in_progress_conversation(
             history_messages=history_messages,
             current_state=current_state,
+            in_progress_state=TransportistaState.AWAITING_REQUEST_TYPE,
             interaction_data=interaction_data,
             client=client,
             sheets_service=sheets_service,
+            workflow_function=handle_in_progress_transportista,
         )
