@@ -26,8 +26,6 @@ from .tools import (
     obtener_informacion_cliente_potencial,
     inferir_tipo_de_servicio,
     es_persona_natural,
-    es_ciudad_valida,
-    es_mercancia_valida,
     necesita_agente_de_carga,
     guardar_correo_cliente,
     buscar_nit as buscar_nit_tool,
@@ -43,6 +41,7 @@ from src.shared.utils.history import (
     get_genai_history,
 )
 from src.services.google_sheets import GoogleSheetsService
+from src.shared.utils.validations import es_ciudad_valida, es_mercancia_valida
 
 logger = logging.getLogger(__name__)
 

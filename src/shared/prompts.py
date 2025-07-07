@@ -10,3 +10,9 @@ Un humano te atenderá en breve
 """
 
 PROMPT_RESUMIDOR="Resume la siguiente solicitud de un cliente en una frase corta y concisa: '{user_message}'"
+
+PROMPT_CIUDAD_NO_VALIDA = "Lo sentimos, no prestamos servicio en {ciudad}, ya que se encuentra en una zona donde actualmente no tenemos cobertura. Agradecemos tu interés en Botero Soto."
+
+PROMPT_MERCANCIA_NO_TRANSPORTADA = "Lo sentimos, no transportamos {tipo_mercancia} porque se encuentra en nuestra lista de mercancías no permitidas. Agradecemos tu interés en Botero Soto."
+
+PROMPT_SERVICIO_NO_PRESTADO_ULTIMA_MILLA = "Lo sentimos, no ofrecemos el servicio de distribución de última milla. Agradecemos tu interés en Botero Soto."

@@ -96,12 +96,6 @@ PROMPT_ASIGNAR_AGENTE_COMERCIAL = "Te asignaremos un agente comercial para que s
 
 PROMPT_CONTACTAR_AGENTE_ASIGNADO = "Con todo el gusto te comparto el agente comercial que tienen asignado a su cuenta, para que te ayude con el requerimiento que tienen. Se trata de {responsable_comercial}"
 
-PROMPT_CIUDAD_NO_VALIDA = "Lo sentimos, no prestamos servicio en {ciudad}, ya que se encuentra en una zona donde actualmente no tenemos cobertura. Agradecemos tu interés en Botero Soto."
-
-PROMPT_MERCANCIA_NO_TRANSPORTADA = "Lo sentimos, no transportamos {tipo_mercancia} porque se encuentra en nuestra lista de mercancías no permitidas. Agradecemos tu interés en Botero Soto."
-
 PROMPT_SERVICIO_NO_PRESTADO_MUDANZA = "Lo sentimos, no ofrecemos el servicio de mudanzas. Te recomendamos contactar una empresa especializada en mudanzas. Agradecemos tu interés en Botero Soto."
 
 PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO = "Lo sentimos, no ofrecemos el servicio de paqueteo. Para este tipo de envíos te recomendamos contactar a una empresa de mensajería. Agradecemos tu interés en Botero Soto."
-
-PROMPT_SERVICIO_NO_PRESTADO_ULTIMA_MILLA = "Lo sentimos, no ofrecemos el servicio de distribución de última milla. Agradecemos tu interés en Botero Soto."

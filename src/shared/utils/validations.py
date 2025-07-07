@@ -1,0 +1,100 @@
+import unicodedata
+
+from src.shared.prompts import (
+    PROMPT_CIUDAD_NO_VALIDA,
+    PROMPT_MERCANCIA_NO_TRANSPORTADA,
+    PROMPT_SERVICIO_NO_PRESTADO_ULTIMA_MILLA,
+)
+
+BLACKLISTED_CITIES = {
+    # Amazonas
+    "leticia", "el encanto", "la chorrera", "la pedrera", "la victoria", "miriti-parana", "puerto alegria", "puerto arica", "puerto narino", "puerto santander", "tarapaca",
+    # Arauca
+    "arauca", "arauquita", "cravo norte", "fortul", "puerto rondon", "saravena", "tame",
+    # Archipiélago de San Andrés, Providencia y Santa Catalina
+    "san andres", "providencia", "santa catalina",
+    # Bolívar
+    "altos del rosario", "barranco de loba", "el penon", "regidor", "rio viejo", "san martin de loba", "arenal", "cantagallo", "morales", "san pablo", "santa rosa del sur", "simiti", "montecristo", "pinillos", "san jacinto del cauca", "tiquisio",
+    # Caquetá
+    "albania", "belen de los andaquies", "cartagena del chaira", "curillo", "el doncello", "el paujil", "la montanita", "milan", "morelia", "puerto rico", "san jose del fragua", "san vicente del caguan", "solano", "solita", "valparaiso",
+    # Cauca
+    "cajibio", "el tambo", "la sierra", "morales", "sotara", "buenos aires", "suarez", "guapi", "lopez", "timbiqui", "inza", "jambalo", "paez", "purace", "silvia", "toribio", "totoro", "almaguer", "argelia", "balboa", "bolivar", "florencia", "la vega", "piamonte", "san sebastian", "santa rosa", "sucre",
+    # Chocó
+    "atrato", "darien", "pacifico norte", "pacifico sur", "san juan", "bagado", "bahia solano", "nuqui", "alto baudo", "condoto",
+    # Guainía
+    "barranco mina", "cacahual", "inirida", "la guadalupe", "mapiripan", "morichal", "pana pana", "puerto colombia", "san felipe",
+    # Guaviare
+    "calamar", "el retorno", "miraflores", "san jose del guaviare",
+    # Huila
+    "algeciras", "santa maria",
+    # Norte de Santander
+    "el tarra", "tibu", "cachira", "convencion", "el carmen", "hacari", "la playa", "san calixto", "teorama", "herran", "ragonvalia",
+    # Putumayo
+    "colon", "puerto asis", "puerto caicedo", "puerto guzman", "puerto leguizamo", "san francisco", "san miguel", "santiago", "sibundoy", "valle del guamuez", "villa garzon",
+    # Vaupés
+    "caruru", "mitu", "pacoa", "papunahua", "taraira", "yavarate",
+    # Vichada
+    "cumaribo", "la primavera", "puerto carreno", "santa rosalia",
+}
+
+
+def _normalize_text(name: str) -> str:
+    """Normalizes a string by removing accents, converting to lowercase, and stripping whitespace."""
+    s = "".join(
+        c
+        for c in unicodedata.normalize("NFD", name)
+        if unicodedata.category(c) != "Mn"
+    )
+    return s.lower().strip()
+
+
+FORBIDDEN_GOODS_KEYWORDS = {
+    _normalize_text(keyword) for keyword in [
+        # Mercancías que no moviliza Botero Soto
+        "desechos peligrosos", "semovientes", "animales vivos", "animal", "armas", "municiones",
+        "carnes", "despojos comestibles", "explosivos", "legumbres", "hortalizas", "plantas",
+        "raices", "tuberculos alimenticios", "liquidos inflamables", "productos de origen animal",
+        "material radiactivo", "navegacion aerea", "navegacion espacial", "navegacion maritima",
+        "navegacion fluvial", "objetos de arte", "coleccion", "antigüedad", "perlas",
+        "piedras preciosas", "pescados", "crustaceos", "moluscos", "invertebrados acuaticos",
+        "polvora", "pirotecnia", "fosforos", "cerillas", "residuos", "desperdicios",
+        "alimentos", "sustancias toxicas", "sustancias infecciosas",
+        # Productos no transportados por Botero Soto
+        "aceites crudos", "aceites de petroleo", "minerales bituminosos",
+        "alquitranes de hulla", "alquitranes de lignito", "alquitranes de turba",
+        "alquitranes minerales", "betunes", "asfaltos naturales", "pizarras bituminosas",
+        "arenas bituminosas", "asfaltitas", "rocas asfalticas", "brea", "coque de brea",
+        "coque de petroleo", "betun de petroleo", "energia electrica", "gas de hulla",
+        "gas de agua", "gas pobre", "lignitos", "azabache", "mezclas bituminosas",
+        "turba", "vaselina", "parafina", "cera de petroleo", "ozoquerita",
+        "cera de lignito", "cera de turba", "ceras minerales", "combustible para motores",
+        "gasolina", "etanol",
+    ]
+}
+
+
+def es_mercancia_valida(tipo_mercancia: str):
+    """
+    Válida si el tipo de mercancía y servicio asociado son transportables por Botero Soto.
+    Devuelve True si es válido, o un mensaje de error si no lo es.
+    """
+    normalized_mercancia = _normalize_text(tipo_mercancia)
+
+    if "ultima milla" in normalized_mercancia:
+        return PROMPT_SERVICIO_NO_PRESTADO_ULTIMA_MILLA
+
+    for keyword in FORBIDDEN_GOODS_KEYWORDS:
+        if keyword in normalized_mercancia:
+            return PROMPT_MERCANCIA_NO_TRANSPORTADA.format(tipo_mercancia=tipo_mercancia)
+
+    return True
+
+
+def es_ciudad_valida(ciudad: str):
+    """
+    Válida si una ciudad es un origen/destino válido. Si no es válido, retorna un mensaje para el usuario.
+    """
+    normalized_ciudad = _normalize_text(ciudad)
+    if normalized_ciudad in BLACKLISTED_CITIES:
+        return PROMPT_CIUDAD_NO_VALIDA.format(ciudad=ciudad.title())
+    return True
