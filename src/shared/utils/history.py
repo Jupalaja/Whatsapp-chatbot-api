@@ -1,4 +1,5 @@
 import json
+import base64
 
 from google.genai import types
 from pydantic import ValidationError
@@ -24,11 +25,41 @@ async def get_genai_history(
     for msg in history_messages:
         try:
             parts_data = json.loads(msg.message)
+            for p_data in parts_data:
+                if (
+                    "inline_data" in p_data
+                    and "data" in p_data["inline_data"]
+                    and isinstance(p_data["inline_data"]["data"], str)
+                ):
+                    try:
+                        # Attempt to decode if it is a base64 string.
+                        p_data["inline_data"]["data"] = base64.b64decode(
+                            p_data["inline_data"]["data"]
+                        )
+                    except (ValueError, TypeError):
+                        # Not a valid base64 string, leave as is.
+                        # model_validate will likely fail later, which is expected.
+                        pass
+
             parts = [types.Part.model_validate(p) for p in parts_data]
         except (json.JSONDecodeError, TypeError, ValidationError):
             parts = [types.Part(text=msg.message)]
         genai_history.append(types.Content(role=msg.role, parts=parts))
     return genai_history
+
+
+def _convert_bytes_to_base64(obj):
+    """
+    Recursively converts bytes objects to base64 strings in a nested structure.
+    """
+    if isinstance(obj, bytes):
+        return base64.b64encode(obj).decode("ascii")
+    elif isinstance(obj, dict):
+        return {key: _convert_bytes_to_base64(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [_convert_bytes_to_base64(item) for item in obj]
+    else:
+        return obj
 
 
 def genai_content_to_interaction_messages(
@@ -49,7 +80,14 @@ def genai_content_to_interaction_messages(
         if len(content.parts) == 1 and content.parts[0].text is not None:
             message_str = content.parts[0].text
         else:
-            parts_json_list = [p.model_dump(exclude_none=True) for p in content.parts]
+            parts_json_list = []
+            for p in content.parts:
+                part_dump = p.model_dump(exclude_none=True)
+                
+                # Convert any bytes objects to base64 strings recursively
+                part_dump = _convert_bytes_to_base64(part_dump)
+                
+                parts_json_list.append(part_dump)
             message_str = json.dumps(parts_json_list)
 
         messages.append(
