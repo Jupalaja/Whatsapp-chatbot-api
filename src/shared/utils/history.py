@@ -77,6 +77,13 @@ def genai_content_to_interaction_messages(
     """
     messages = []
     for content in history:
+        tool_calls = []
+        if content.role == "model":
+            # Check for function calls in the content
+            for part in content.parts:
+                if part.function_call:
+                    tool_calls.append(part.function_call.name)
+        
         if len(content.parts) == 1 and content.parts[0].text is not None:
             message_str = content.parts[0].text
         else:
@@ -92,7 +99,9 @@ def genai_content_to_interaction_messages(
 
         messages.append(
             InteractionMessage(
-                role=InteractionType(content.role), message=message_str
+                role=InteractionType(content.role), 
+                message=message_str,
+                tool_calls=tool_calls if tool_calls else None
             )
         )
     return messages

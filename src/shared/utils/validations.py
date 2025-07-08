@@ -56,7 +56,7 @@ FORBIDDEN_GOODS_KEYWORDS = {
         "raices", "tuberculos alimenticios", "liquidos inflamables", "productos de origen animal",
         "material radiactivo", "navegacion aerea", "navegacion espacial", "navegacion maritima",
         "navegacion fluvial", "objetos de arte", "coleccion", "antigüedad", "perlas",
-        "piedras preciosas", "pescados", "crustaceos", "moluscos", "invertebrados acuaticos",
+        "piedras preciosas", "metales preciosos", "pescados", "crustaceos", "moluscos", "invertebrados acuaticos",
         "polvora", "pirotecnia", "fosforos", "cerillas", "residuos", "desperdicios",
         "alimentos", "sustancias toxicas", "sustancias infecciosas",
         # Productos no transportados por Botero Soto

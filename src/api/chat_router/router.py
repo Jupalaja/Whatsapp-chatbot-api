@@ -1,4 +1,5 @@
 import logging
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 import google.genai as genai
@@ -22,6 +23,7 @@ from src.api.candidato_a_empleo.state import CandidatoAEmpleoState
 from src.api.transportista.state import TransportistaState
 from src.database import models
 from src.services.google_sheets import GoogleSheetsService
+from src.shared.constants import CLASSIFICATION_THRESHOLD
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -40,7 +42,6 @@ async def chat_router(
     client: genai.Client = request.app.state.genai_client
     sheets_service: GoogleSheetsService = request.app.state.sheets_service
 
-    # Get or create interaction
     interaction = await db.get(models.Interaction, interaction_request.sessionId)
     
     history_messages = []
@@ -58,7 +59,8 @@ async def chat_router(
                 interaction.interaction_data["classifiedAs"]
             )
 
-    # If already classified, route directly to the specific handler
+    history_messages.append(interaction_request.message)
+
     if classified_as:
         return await _route_to_specific_handler(
             classified_as=classified_as,
@@ -66,10 +68,8 @@ async def chat_router(
             client=client,
             sheets_service=sheets_service,
             db=db,
+            history_messages=history_messages,
         )
-
-    # Step 1: Handle tipo-de-interaccion (classification)
-    history_messages.append(interaction_request.message)
 
     try:
         (
@@ -81,23 +81,15 @@ async def chat_router(
             client=client,
         )
 
-        # Update history with classification response
-        history_messages.extend(classification_messages)
-
-        # Save classification result
-        if interaction:
-            interaction.messages = [msg.model_dump(mode="json") for msg in history_messages]
-        else:
-            interaction = models.Interaction(
-                session_id=interaction_request.sessionId,
-                messages=[msg.model_dump(mode="json") for msg in history_messages],
-            )
-            db.add(interaction)
-
-        # Determine if we have a classification
+        validation_tools = [
+            "es_mercancia_valida", 
+            "es_ciudad_valida", 
+            "es_solicitud_de_mudanza", 
+            "es_solicitud_de_paqueteo",
+            "obtener_ayuda_humana"
+        ]
+        
         if clasificacion:
-            from src.shared.constants import CLASSIFICATION_THRESHOLD
-            
             high_confidence_categories = [
                 p.categoria
                 for p in clasificacion.puntuacionesPorCategoria
@@ -108,7 +100,41 @@ async def chat_router(
             elif len(high_confidence_categories) > 1:
                 classified_as = CategoriaClasificacion.OTRO
 
-        # Save classification to interaction data
+        # If a specific classification is found (and not OTRO), route to the specific handler without using the generic message.
+        if classified_as and classified_as != CategoriaClasificacion.OTRO and tool_call_name not in validation_tools:
+            if not interaction:
+                interaction = models.Interaction(
+                    session_id=interaction_request.sessionId,
+                    messages=[msg.model_dump(mode="json") for msg in history_messages],
+                )
+                db.add(interaction)
+
+            if interaction.interaction_data is None:
+                interaction.interaction_data = {}
+            interaction.interaction_data["classifiedAs"] = classified_as.value
+            await db.commit()
+
+            return await _route_to_specific_handler(
+                classified_as=classified_as,
+                interaction_request=interaction_request,
+                client=client,
+                sheets_service=sheets_service,
+                db=db,
+                history_messages=history_messages,
+            )
+
+        # Otherwise, use the response from the classification step (handles validation tools, OTRO, and no classification).
+        history_messages.extend(classification_messages)
+
+        if interaction:
+            interaction.messages = [msg.model_dump(mode="json") for msg in history_messages]
+        else:
+            interaction = models.Interaction(
+                session_id=interaction_request.sessionId,
+                messages=[msg.model_dump(mode="json") for msg in history_messages],
+            )
+            db.add(interaction)
+
         if classified_as:
             if interaction.interaction_data is None:
                 interaction.interaction_data = {}
@@ -116,17 +142,6 @@ async def chat_router(
 
         await db.commit()
 
-        # Step 2: If classified, route to specific handler
-        if classified_as:
-            return await _route_to_specific_handler(
-                classified_as=classified_as,
-                interaction_request=interaction_request,
-                client=client,
-                sheets_service=sheets_service,
-                db=db,
-            )
-
-        # Step 3: If not classified, return classification response
         return InteractionResponse(
             sessionId=interaction_request.sessionId,
             messages=classification_messages,
@@ -152,24 +167,15 @@ async def _route_to_specific_handler(
     client: genai.Client,
     sheets_service: GoogleSheetsService,
     db: AsyncSession,
+    history_messages: List[InteractionMessage],
 ) -> InteractionResponse:
     """Routes the request to the appropriate specific handler based on classification."""
     
-    # Get existing interaction for the specific handler
     interaction = await db.get(models.Interaction, interaction_request.sessionId)
     
-    history_messages = []
     interaction_data = None
-    
-    if interaction:
-        history_messages = [
-            InteractionMessage.model_validate(msg) for msg in interaction.messages
-        ]
-        if interaction.interaction_data:
-            interaction_data = interaction.interaction_data
-
-    # Add the new user message
-    history_messages.append(interaction_request.message)
+    if interaction and interaction.interaction_data:
+        interaction_data = interaction.interaction_data
 
     try:
         if classified_as == CategoriaClasificacion.CLIENTE_POTENCIAL:

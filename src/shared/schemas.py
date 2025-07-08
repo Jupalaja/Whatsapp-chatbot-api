@@ -23,6 +23,7 @@ class HealthResponse(BaseModel):
 class InteractionMessage(BaseModel):
     role: InteractionType
     message: str
+    tool_calls: Optional[List[str]] = None
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 

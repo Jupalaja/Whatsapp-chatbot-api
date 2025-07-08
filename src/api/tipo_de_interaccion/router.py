@@ -2,7 +2,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 import google.genai as genai
-from google.genai import errors, types
+from google.genai import errors
 
 from .handler import handle_tipo_de_interaccion
 
@@ -12,16 +12,13 @@ from src.shared.enums import InteractionType, CategoriaClasificacion
 from src.shared.constants import (
     TIPO_DE_INTERACCION_MESSAGES_UNTIL_HUMAN,
     CLASSIFICATION_THRESHOLD,
-    GEMINI_MODEL,
 )
-from src.shared.prompts import CONTACTO_BASE_SYSTEM_PROMPT
 from src.shared.schemas import (
     InteractionMessage,
     InteractionRequest,
     TipoDeInteraccionResponse,
 )
 from src.shared.tools import obtener_ayuda_humana
-from src.shared.utils.history import get_genai_history
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -56,7 +53,14 @@ async def handle(
                 interaction.interaction_data["classifiedAs"]
             )
 
+    history_messages.append(interaction_request.message)
+
     if classified_as:
+        # This endpoint shouldn't be hit if already classified, but handle defensively.
+        # The chat-router should handle this flow.
+        # For simplicity, we can assume this returns nothing if already classified or
+        # we can have a simple pass-through chat.
+        # Let's return the current state.
         return TipoDeInteraccionResponse(
             sessionId=interaction_request.sessionId,
             messages=[],
@@ -65,8 +69,6 @@ async def handle(
             state=interaction.state if interaction else None,
             classifiedAs=classified_as,
         )
-
-    history_messages.append(interaction_request.message)
 
     user_message_count = sum(
         1 for msg in history_messages if msg.role == InteractionType.USER

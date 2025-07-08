@@ -32,10 +32,7 @@ from src.shared.constants import GEMINI_MODEL
 from src.shared.enums import InteractionType
 from src.shared.schemas import InteractionMessage
 from src.shared.tools import obtener_ayuda_humana
-from src.shared.utils.history import (
-    genai_content_to_interaction_messages,
-    get_genai_history,
-)
+from src.shared.utils.history import get_genai_history
 from src.services.google_sheets import GoogleSheetsService
 from src.shared.utils.validations import (
     es_ciudad_valida,
@@ -138,33 +135,46 @@ async def _write_cliente_potencial_to_sheet(
         logger.error(f"Failed to write to Google Sheet: {e}", exc_info=True)
 
 
-async def _execute_tool_calls(
-    model_turn_content: types.Content,
+async def _execute_tool_calls_and_get_response(
+    history_messages: list[InteractionMessage],
+    client: genai.Client,
     tools: list,
-) -> Tuple[dict, list[types.Part]]:
-    """Executes function calls from the model's response and returns the results."""
+    system_prompt: str,
+) -> Tuple[Optional[str], dict, list[str]]:
+    """
+    Executes a conversation with tool calling and returns the final text response,
+    tool results, and list of tool call names.
+    """
+    genai_history = await get_genai_history(history_messages)
+    config = types.GenerateContentConfig(
+        tools=tools,
+        system_instruction=system_prompt,
+        temperature=0.0,
+        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+    )
+
+    response = await client.aio.models.generate_content(
+        model=GEMINI_MODEL, contents=genai_history, config=config
+    )
+
     tool_results = {}
-    fr_parts = []
-    for part in model_turn_content.parts:
-        fc = part.function_call
-        if not fc:
-            continue
+    tool_call_names = []
+    
+    if response.function_calls:
+        for function_call in response.function_calls:
+            tool_name = function_call.name
+            tool_args = dict(function_call.args) if function_call.args else {}
+            tool_function = next((t for t in tools if t.__name__ == tool_name), None)
+            
+            if tool_function:
+                result = tool_function(**tool_args)
+                tool_results[tool_name] = result
+                tool_call_names.append(tool_name)
 
-        tool_name = fc.name
-        tool_args = dict(fc.args) if fc.args else {}
-        tool_function = next((t for t in tools if t.__name__ == tool_name), None)
-
-        if tool_function:
-            result = tool_function(**tool_args)
-            tool_results[tool_name] = result
-            fr_parts.append(
-                types.Part(
-                    function_response=types.FunctionResponse(
-                        name=tool_name, response={'result': result}
-                    )
-                )
-            )
-    return tool_results, fr_parts
+    # Get text response if available
+    text_response = response.text if hasattr(response, 'text') else None
+    
+    return text_response, tool_results, tool_call_names
 
 
 async def _get_final_text_response(
@@ -220,7 +230,9 @@ async def _workflow_remaining_information_provided(
     return (
         [
             InteractionMessage(
-                role=InteractionType.MODEL, message=assistant_message_text
+                role=InteractionType.MODEL, 
+                message=assistant_message_text,
+                tool_calls=[tool_call_name] if tool_call_name else None
             )
         ],
         next_state,
@@ -295,105 +307,155 @@ async def _workflow_awaiting_nit(
 
     buscar_nit.__doc__ = buscar_nit_tool.__doc__
 
-    tools = [buscar_nit, es_persona_natural, obtener_ayuda_humana]
-    config = types.GenerateContentConfig(
-        tools=tools,
-        system_instruction=CLIENTE_POTENCIAL_SYSTEM_PROMPT,
-        temperature=0.0,
-        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+    tools = [
+        buscar_nit,
+        es_persona_natural,
+        obtener_ayuda_humana,
+        es_mercancia_valida,
+        es_solicitud_de_mudanza,
+        es_solicitud_de_paqueteo,
+    ]
+    
+    text_response, tool_results, tool_call_names = await _execute_tool_calls_and_get_response(
+        history_messages, client, tools, CLIENTE_POTENCIAL_SYSTEM_PROMPT
     )
 
-    while True:
+    if tool_results.get("es_solicitud_de_mudanza"):
+        interaction_data["discarded"] = "es_solicitud_de_mudanza"
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL,
+                    message=PROMPT_SERVICIO_NO_PRESTADO_MUDANZA,
+                    tool_calls=["es_solicitud_de_mudanza"],
+                )
+            ],
+            ClientePotencialState.CONVERSATION_FINISHED,
+            "es_solicitud_de_mudanza",
+            interaction_data,
+        )
+
+    if tool_results.get("es_solicitud_de_paqueteo"):
+        interaction_data["discarded"] = "es_solicitud_de_paqueteo"
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL,
+                    message=PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO,
+                    tool_calls=["es_solicitud_de_paqueteo"],
+                )
+            ],
+            ClientePotencialState.CONVERSATION_FINISHED,
+            "es_solicitud_de_paqueteo",
+            interaction_data,
+        )
+
+    validation_result_mercancia = tool_results.get("es_mercancia_valida")
+    if validation_result_mercancia and isinstance(validation_result_mercancia, str):
+        interaction_data["discarded"] = "no_es_mercancia_valida"
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL,
+                    message=validation_result_mercancia,
+                    tool_calls=["es_mercancia_valida"],
+                )
+            ],
+            ClientePotencialState.CONVERSATION_FINISHED,
+            "es_mercancia_valida",
+            interaction_data,
+        )
+
+    if "obtener_ayuda_humana" in tool_results:
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL, 
+                    message=obtener_ayuda_humana(),
+                    tool_calls=["obtener_ayuda_humana"]
+                )
+            ],
+            ClientePotencialState.HUMAN_ESCALATION,
+            "obtener_ayuda_humana",
+            interaction_data,
+        )
+
+    if "buscar_nit" in tool_results:
+        search_result = tool_results["buscar_nit"]
+        interaction_data["resultado_buscar_nit"] = search_result
+
+        # Get NIT from the last function call args by parsing the conversation
+        nit = None
         genai_history = await get_genai_history(history_messages)
         response = await client.aio.models.generate_content(
-            model=GEMINI_MODEL, contents=genai_history, config=config
+            model=GEMINI_MODEL, 
+            contents=genai_history, 
+            config=types.GenerateContentConfig(
+                tools=tools,
+                system_instruction=CLIENTE_POTENCIAL_SYSTEM_PROMPT,
+                temperature=0.0,
+                automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+            )
+        )
+        
+        if response.function_calls:
+            for fc in response.function_calls:
+                if fc.name == "buscar_nit":
+                    nit = fc.args.get("nit")
+                    break
+
+        if "remaining_information" not in interaction_data:
+            interaction_data["remaining_information"] = {}
+        interaction_data["remaining_information"]["nit"] = nit
+
+        assistant_message_text = await _get_final_text_response(
+            history_messages, client, CLIENTE_POTENCIAL_GATHER_INFO_SYSTEM_PROMPT
+        )
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL, 
+                    message=assistant_message_text,
+                    tool_calls=["buscar_nit"]
+                )
+            ],
+            ClientePotencialState.AWAITING_REMAINING_INFORMATION,
+            "buscar_nit",
+            interaction_data,
         )
 
-        if not response.function_calls:
-            assistant_message_text = (
-                response.text
-                or "Could you please provide your NIT or indicate if you are an individual?"
-            )
-            return (
-                [
-                    InteractionMessage(
-                        role=InteractionType.MODEL, message=assistant_message_text
-                    )
-                ],
-                ClientePotencialState.AWAITING_NIT,
-                None,
-                interaction_data,
-            )
-
-        model_turn_content = response.candidates[0].content
-        history_messages.extend(
-            genai_content_to_interaction_messages([model_turn_content])
+    if "es_persona_natural" in tool_results:
+        assistant_message_text = await _get_final_text_response(
+            history_messages, client, CLIENTE_POTENCIAL_SYSTEM_PROMPT
+        )
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL, 
+                    message=assistant_message_text,
+                    tool_calls=["es_persona_natural"]
+                )
+            ],
+            ClientePotencialState.AWAITING_PERSONA_NATURAL_FREIGHT_INFO,
+            "es_persona_natural",
+            interaction_data,
         )
 
-        tool_results, fr_parts = await _execute_tool_calls(model_turn_content, tools)
-
-        if not fr_parts:
-            # Model hallucinated a tool call, let's get a text response
-            logger.warning(
-                f"Model returned a function call that was not executed: {response.function_calls}"
+    # No tool call or unrecognized response
+    assistant_message_text = (
+        text_response or "Could you please provide your NIT or indicate if you are an individual?"
+    )
+    return (
+        [
+            InteractionMessage(
+                role=InteractionType.MODEL, 
+                message=assistant_message_text
             )
-            continue  # The history now includes the bad function call, let model retry.
-
-        tool_turn_content = types.Content(role="tool", parts=fr_parts)
-        history_messages.extend(
-            genai_content_to_interaction_messages([tool_turn_content])
-        )
-
-        if "obtener_ayuda_humana" in tool_results:
-            return (
-                [
-                    InteractionMessage(
-                        role=InteractionType.MODEL, message=obtener_ayuda_humana()
-                    )
-                ],
-                ClientePotencialState.HUMAN_ESCALATION,
-                "obtener_ayuda_humana",
-                interaction_data,
-            )
-
-        if "buscar_nit" in tool_results:
-            search_result = tool_results["buscar_nit"]
-            interaction_data["resultado_buscar_nit"] = search_result
-
-            nit = model_turn_content.parts[0].function_call.args.get("nit")
-
-            if "remaining_information" not in interaction_data:
-                interaction_data["remaining_information"] = {}
-            interaction_data["remaining_information"]["nit"] = nit
-
-            assistant_message_text = await _get_final_text_response(
-                history_messages, client, CLIENTE_POTENCIAL_GATHER_INFO_SYSTEM_PROMPT
-            )
-            return (
-                [
-                    InteractionMessage(
-                        role=InteractionType.MODEL, message=assistant_message_text
-                    )
-                ],
-                ClientePotencialState.AWAITING_REMAINING_INFORMATION,
-                None,
-                interaction_data,
-            )
-
-        if "es_persona_natural" in tool_results:
-            assistant_message_text = await _get_final_text_response(
-                history_messages, client, CLIENTE_POTENCIAL_SYSTEM_PROMPT
-            )
-            return (
-                [
-                    InteractionMessage(
-                        role=InteractionType.MODEL, message=assistant_message_text
-                    )
-                ],
-                ClientePotencialState.AWAITING_PERSONA_NATURAL_FREIGHT_INFO,
-                None,
-                interaction_data,
-            )
+        ],
+        ClientePotencialState.AWAITING_NIT,
+        None,
+        interaction_data,
+    )
 
 
 async def _workflow_awaiting_persona_natural_freight_info(
@@ -403,21 +465,12 @@ async def _workflow_awaiting_persona_natural_freight_info(
 ) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str], dict]:
     """Handles the workflow when waiting for freight info from a natural person."""
     tools = [necesita_agente_de_carga, obtener_ayuda_humana]
-    genai_history = await get_genai_history(history_messages)
-    config = types.GenerateContentConfig(
-        tools=tools,
-        system_instruction=CLIENTE_POTENCIAL_SYSTEM_PROMPT,
-        temperature=0.0,
-        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-    )
-    response = await client.aio.models.generate_content(
-        model=GEMINI_MODEL, contents=genai_history, config=config
+    
+    text_response, tool_results, tool_call_names = await _execute_tool_calls_and_get_response(
+        history_messages, client, tools, CLIENTE_POTENCIAL_SYSTEM_PROMPT
     )
 
-    if (
-        response.function_calls
-        and response.function_calls[0].name == "necesita_agente_de_carga"
-    ):
+    if "necesita_agente_de_carga" in tool_results:
         assistant_message_text = PROMPT_AGENCIAMIENTO_DE_CARGA
         next_state = ClientePotencialState.CONVERSATION_FINISHED
         tool_call_name = "necesita_agente_de_carga"
@@ -430,7 +483,11 @@ async def _workflow_awaiting_persona_natural_freight_info(
         interaction_data["messages_after_finished_count"] = 0
 
     return (
-        [InteractionMessage(role=InteractionType.MODEL, message=assistant_message_text)],
+        [InteractionMessage(
+            role=InteractionType.MODEL, 
+            message=assistant_message_text,
+            tool_calls=[tool_call_name] if tool_call_name else None
+        )],
         next_state,
         tool_call_name,
         interaction_data,
@@ -455,148 +512,132 @@ async def _workflow_awaiting_remaining_information(
         cliente_solicito_correo,
     ]
 
-    config = types.GenerateContentConfig(
-        tools=tools,
-        system_instruction=CLIENTE_POTENCIAL_GATHER_INFO_SYSTEM_PROMPT,
-        temperature=0.0,
-        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+    text_response, tool_results, tool_call_names = await _execute_tool_calls_and_get_response(
+        history_messages, client, tools, CLIENTE_POTENCIAL_GATHER_INFO_SYSTEM_PROMPT
     )
 
-    while True:
-        genai_history = await get_genai_history(history_messages)
-        response = await client.aio.models.generate_content(
-            model=GEMINI_MODEL, contents=genai_history, config=config
+    if "obtener_ayuda_humana" in tool_results:
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL, 
+                    message=obtener_ayuda_humana(),
+                    tool_calls=["obtener_ayuda_humana"]
+                )
+            ],
+            ClientePotencialState.HUMAN_ESCALATION,
+            "obtener_ayuda_humana",
+            interaction_data,
         )
 
-        if not response.function_calls:
-            assistant_message_text = response.text
-            if not assistant_message_text:
-                logger.warning(
-                    "Model did not return text or function call. Escalating to human."
+    if tool_results.get("es_solicitud_de_mudanza"):
+        interaction_data["discarded"] = "es_solicitud_de_mudanza"
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL,
+                    message=PROMPT_SERVICIO_NO_PRESTADO_MUDANZA,
+                    tool_calls=["es_solicitud_de_mudanza"]
                 )
-                return (
-                    [
-                        InteractionMessage(
-                            role=InteractionType.MODEL, message=obtener_ayuda_humana()
-                        )
-                    ],
-                    ClientePotencialState.HUMAN_ESCALATION,
-                    "obtener_ayuda_humana",
-                    interaction_data,
-                )
-            return (
-                [
-                    InteractionMessage(
-                        role=InteractionType.MODEL, message=assistant_message_text
-                    )
-                ],
-                ClientePotencialState.AWAITING_REMAINING_INFORMATION,
-                None,
-                interaction_data,
-            )
-
-        model_turn_content = response.candidates[0].content
-        history_messages.extend(
-            genai_content_to_interaction_messages([model_turn_content])
+            ],
+            ClientePotencialState.CONVERSATION_FINISHED,
+            "es_solicitud_de_mudanza",
+            interaction_data,
         )
 
-        tool_results, fr_parts = await _execute_tool_calls(model_turn_content, tools)
-
-        if "obtener_ayuda_humana" in tool_results:
-            return (
-                [
-                    InteractionMessage(
-                        role=InteractionType.MODEL, message=obtener_ayuda_humana()
-                    )
-                ],
-                ClientePotencialState.HUMAN_ESCALATION,
-                "obtener_ayuda_humana",
-                interaction_data,
-            )
-
-        if tool_results.get("es_solicitud_de_mudanza"):
-            interaction_data["discarded"] = "es_solicitud_de_mudanza"
-            return (
-                [
-                    InteractionMessage(
-                        role=InteractionType.MODEL,
-                        message=PROMPT_SERVICIO_NO_PRESTADO_MUDANZA,
-                    )
-                ],
-                ClientePotencialState.CONVERSATION_FINISHED,
-                None,
-                interaction_data,
-            )
-
-        if tool_results.get("es_solicitud_de_paqueteo"):
-            interaction_data["discarded"] = "es_solicitud_de_paqueteo"
-            return (
-                [
-                    InteractionMessage(
-                        role=InteractionType.MODEL,
-                        message=PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO,
-                    )
-                ],
-                ClientePotencialState.CONVERSATION_FINISHED,
-                None,
-                interaction_data,
-            )
-
-        validation_checks = {
-            "es_mercancia_valida": tool_results.get("es_mercancia_valida"),
-            "es_ciudad_valida": tool_results.get("es_ciudad_valida"),
-        }
-
-        for check, result in validation_checks.items():
-            if result and (isinstance(result, str)):
-                if check == "es_mercancia_valida":
-                    interaction_data["discarded"] = "no_es_mercancia_valida"
-                elif check == "es_ciudad_valida":
-                    interaction_data["discarded"] = "no_es_ciudad_valida"
-                interaction_data["messages_after_finished_count"] = 0
-                return (
-                    [InteractionMessage(role=InteractionType.MODEL, message=result)],
-                    ClientePotencialState.CONVERSATION_FINISHED,
-                    None,
-                    interaction_data,
+    if tool_results.get("es_solicitud_de_paqueteo"):
+        interaction_data["discarded"] = "es_solicitud_de_paqueteo"
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL,
+                    message=PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO,
+                    tool_calls=["es_solicitud_de_paqueteo"]
                 )
+            ],
+            ClientePotencialState.CONVERSATION_FINISHED,
+            "es_solicitud_de_paqueteo",
+            interaction_data,
+        )
 
-        if "cliente_solicito_correo" in tool_results:
-            interaction_data["customer_requested_email_sent"] = True
+    validation_checks = {
+        "es_mercancia_valida": tool_results.get("es_mercancia_valida"),
+        "es_ciudad_valida": tool_results.get("es_ciudad_valida"),
+    }
+
+    for check, result in validation_checks.items():
+        if result and (isinstance(result, str)):
+            if check == "es_mercancia_valida":
+                interaction_data["discarded"] = "no_es_mercancia_valida"
+            elif check == "es_ciudad_valida":
+                interaction_data["discarded"] = "no_es_ciudad_valida"
+            interaction_data["messages_after_finished_count"] = 0
             return (
-                [
-                    InteractionMessage(
-                        role=InteractionType.MODEL,
-                        message=PROMPT_CUSTOMER_REQUESTED_EMAIL,
-                    )
-                ],
-                ClientePotencialState.CUSTOMER_ASKED_FOR_EMAIL_DATA_SENT,
-                None,
+                [InteractionMessage(
+                    role=InteractionType.MODEL, 
+                    message=result,
+                    tool_calls=[check]
+                )],
+                ClientePotencialState.CONVERSATION_FINISHED,
+                check,
                 interaction_data,
             )
 
-        if "obtener_informacion_cliente_potencial" in tool_results:
-            collected_info = tool_results["obtener_informacion_cliente_potencial"]
-            if "remaining_information" not in interaction_data:
-                interaction_data["remaining_information"] = {}
-            interaction_data["remaining_information"].update(collected_info)
-            return await _workflow_remaining_information_provided(
-                interaction_data=interaction_data, sheets_service=sheets_service
-            )
+    if "cliente_solicito_correo" in tool_results:
+        interaction_data["customer_requested_email_sent"] = True
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL,
+                    message=PROMPT_CUSTOMER_REQUESTED_EMAIL,
+                    tool_calls=["cliente_solicito_correo"]
+                )
+            ],
+            ClientePotencialState.CUSTOMER_ASKED_FOR_EMAIL_DATA_SENT,
+            "cliente_solicito_correo",
+            interaction_data,
+        )
 
-        if fr_parts:
-            tool_turn_content = types.Content(role="tool", parts=fr_parts)
-            history_messages.extend(
-                genai_content_to_interaction_messages([tool_turn_content])
+    if "obtener_informacion_cliente_potencial" in tool_results:
+        collected_info = tool_results["obtener_informacion_cliente_potencial"]
+        if "remaining_information" not in interaction_data:
+            interaction_data["remaining_information"] = {}
+        interaction_data["remaining_information"].update(collected_info)
+        return await _workflow_remaining_information_provided(
+            interaction_data=interaction_data, sheets_service=sheets_service
+        )
+
+    # If no significant tool calls, continue conversation
+    assistant_message_text = text_response
+    if not assistant_message_text:
+        logger.warning(
+            "Model did not return text or function call. Escalating to human."
+        )
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL, 
+                    message=obtener_ayuda_humana(),
+                    tool_calls=["obtener_ayuda_humana"]
+                )
+            ],
+            ClientePotencialState.HUMAN_ESCALATION,
+            "obtener_ayuda_humana",
+            interaction_data,
+        )
+    
+    return (
+        [
+            InteractionMessage(
+                role=InteractionType.MODEL, 
+                message=assistant_message_text,
+                tool_calls=tool_call_names if tool_call_names else None
             )
-        else:
-            # If no valid tool was called, but function_calls was not empty,
-            # it might be an error. Let's get a text response by continuing the loop.
-            logger.warning(
-                "Model returned a function call that was not executed:"
-                f" {response.function_calls}"
-            )
-            continue
+        ],
+        ClientePotencialState.AWAITING_REMAINING_INFORMATION,
+        tool_call_names[0] if tool_call_names else None,
+        interaction_data,
+    )
 
 
 async def _workflow_customer_asked_for_email_data_sent(
@@ -607,42 +648,18 @@ async def _workflow_customer_asked_for_email_data_sent(
 ) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str], dict]:
     """Handles the workflow after the user has requested to send info via email."""
     tools = [guardar_correo_cliente, obtener_ayuda_humana]
-    config = types.GenerateContentConfig(
-        tools=tools,
-        system_instruction=PROMPT_GET_CUSTOMER_EMAIL_SYSTEM_PROMPT,
-        temperature=0.0,
-        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+    
+    text_response, tool_results, tool_call_names = await _execute_tool_calls_and_get_response(
+        history_messages, client, tools, PROMPT_GET_CUSTOMER_EMAIL_SYSTEM_PROMPT
     )
-
-    genai_history = await get_genai_history(history_messages)
-    response = await client.aio.models.generate_content(
-        model=GEMINI_MODEL, contents=genai_history, config=config
-    )
-
-    if not response.function_calls:
-        assistant_message_text = (
-            response.text
-            or "Por favor, indícame tu correo electrónico para continuar."
-        )
-        return (
-            [
-                InteractionMessage(
-                    role=InteractionType.MODEL, message=assistant_message_text
-                )
-            ],
-            ClientePotencialState.CUSTOMER_ASKED_FOR_EMAIL_DATA_SENT,
-            None,
-            interaction_data,
-        )
-
-    model_turn_content = response.candidates[0].content
-    tool_results, _ = await _execute_tool_calls(model_turn_content, tools)
 
     if "obtener_ayuda_humana" in tool_results:
         return (
             [
                 InteractionMessage(
-                    role=InteractionType.MODEL, message=obtener_ayuda_humana()
+                    role=InteractionType.MODEL, 
+                    message=obtener_ayuda_humana(),
+                    tool_calls=["obtener_ayuda_humana"]
                 )
             ],
             ClientePotencialState.HUMAN_ESCALATION,
@@ -659,24 +676,27 @@ async def _workflow_customer_asked_for_email_data_sent(
                 InteractionMessage(
                     role=InteractionType.MODEL,
                     message=PROMPT_EMAIL_GUARDADO_Y_FINALIZAR,
+                    tool_calls=["guardar_correo_cliente"]
                 )
             ],
             ClientePotencialState.CONVERSATION_FINISHED,
-            None,
+            "guardar_correo_cliente",
             interaction_data,
         )
 
     # If the model called a different tool or failed, ask again.
-    assistant_message_text = await _get_final_text_response(
-        history_messages, client, PROMPT_GET_CUSTOMER_EMAIL_SYSTEM_PROMPT
+    assistant_message_text = (
+        text_response or "Por favor, indícame tu correo electrónico para continuar."
     )
     return (
         [
             InteractionMessage(
-                role=InteractionType.MODEL, message=assistant_message_text
+                role=InteractionType.MODEL, 
+                message=assistant_message_text,
+                tool_calls=tool_call_names if tool_call_names else None
             )
         ],
         ClientePotencialState.CUSTOMER_ASKED_FOR_EMAIL_DATA_SENT,
-        None,
+        tool_call_names[0] if tool_call_names else None,
         interaction_data,
     )

@@ -87,9 +87,11 @@ async def workflow_tipo_de_interaccion(
                 # If validation returns a string, it means the merchandise is invalid
                 if isinstance(validation_result, str):
                     assistant_message = InteractionMessage(
-                        role=InteractionType.MODEL, message=validation_result
+                        role=InteractionType.MODEL,
+                        message=validation_result,
+                        tool_calls=[function_call.name],
                     )
-                    return [assistant_message], clasificacion, None
+                    return [assistant_message], clasificacion, function_call.name
                     
             elif function_call.name == "es_ciudad_valida":
                 # Get the city from the function args
@@ -99,9 +101,11 @@ async def workflow_tipo_de_interaccion(
                 # If validation returns a string, it means the city is invalid
                 if isinstance(validation_result, str):
                     assistant_message = InteractionMessage(
-                        role=InteractionType.MODEL, message=validation_result
+                        role=InteractionType.MODEL,
+                        message=validation_result,
+                        tool_calls=[function_call.name],
                     )
-                    return [assistant_message], clasificacion, None
+                    return [assistant_message], clasificacion, function_call.name
                     
             elif function_call.name == "es_solicitud_de_mudanza":
                 # Get the boolean value from the function args
@@ -112,9 +116,11 @@ async def workflow_tipo_de_interaccion(
                 if validation_result:
                     from src.shared.prompts import PROMPT_SERVICIO_NO_PRESTADO_MUDANZA
                     assistant_message = InteractionMessage(
-                        role=InteractionType.MODEL, message=PROMPT_SERVICIO_NO_PRESTADO_MUDANZA
+                        role=InteractionType.MODEL,
+                        message=PROMPT_SERVICIO_NO_PRESTADO_MUDANZA,
+                        tool_calls=[function_call.name],
                     )
-                    return [assistant_message], clasificacion, None
+                    return [assistant_message], clasificacion, function_call.name
                     
             elif function_call.name == "es_solicitud_de_paqueteo":
                 # Get the boolean value from the function args
@@ -125,9 +131,11 @@ async def workflow_tipo_de_interaccion(
                 if validation_result:
                     from src.shared.prompts import PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO
                     assistant_message = InteractionMessage(
-                        role=InteractionType.MODEL, message=PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO
+                        role=InteractionType.MODEL,
+                        message=PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO,
+                        tool_calls=[function_call.name],
                     )
-                    return [assistant_message], clasificacion, None
+                    return [assistant_message], clasificacion, function_call.name
                     
             elif function_call.name == "obtener_ayuda_humana":
                 tool_call_name = "obtener_ayuda_humana"
@@ -143,10 +151,7 @@ async def workflow_tipo_de_interaccion(
         )
 
     if not assistant_message:
-        assistant_message = InteractionMessage(
-            role=InteractionType.MODEL,
-            message="No he podido procesar tu solicitud. Un humano te ayudará.",
-        )
-        tool_call_name = "obtener_ayuda_humana"
+        # This fallback is for cases where the model fails to generate any response or tool call.
+        return [], clasificacion, None
 
     return [assistant_message], clasificacion, tool_call_name
