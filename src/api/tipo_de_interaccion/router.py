@@ -18,6 +18,7 @@ from src.shared.schemas import (
     InteractionRequest,
     TipoDeInteraccionResponse,
 )
+from src.shared.state import GlobalState
 from src.shared.tools import obtener_ayuda_humana
 
 router = APIRouter()
@@ -86,10 +87,12 @@ async def handle(
 
         if interaction:
             interaction.messages = [msg.model_dump(mode="json") for msg in history_messages]
+            interaction.state = GlobalState.HUMAN_ESCALATION.value
         else:
             interaction = models.Interaction(
                 session_id=interaction_request.sessionId,
                 messages=[msg.model_dump(mode="json") for msg in history_messages],
+                state=GlobalState.HUMAN_ESCALATION.value,
             )
             db.add(interaction)
         await db.commit()
@@ -123,6 +126,17 @@ async def handle(
                 messages=[msg.model_dump(mode="json") for msg in history_messages],
             )
             db.add(interaction)
+
+        validation_tools = [
+            "es_mercancia_valida",
+            "es_ciudad_valida",
+            "es_solicitud_de_mudanza",
+            "es_solicitud_de_paqueteo",
+        ]
+        if tool_call_name in validation_tools:
+            interaction.state = GlobalState.CONVERSATION_FINISHED.value
+        elif tool_call_name == "obtener_ayuda_humana":
+            interaction.state = GlobalState.HUMAN_ESCALATION.value
 
         if clasificacion:
             high_confidence_categories = [

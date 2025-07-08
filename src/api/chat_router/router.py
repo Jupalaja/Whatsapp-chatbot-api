@@ -24,6 +24,7 @@ from src.api.transportista.state import TransportistaState
 from src.database import models
 from src.services.google_sheets import GoogleSheetsService
 from src.shared.constants import CLASSIFICATION_THRESHOLD
+from src.shared.state import GlobalState
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -134,6 +135,17 @@ async def chat_router(
                 messages=[msg.model_dump(mode="json") for msg in history_messages],
             )
             db.add(interaction)
+
+        validation_function_tools = [
+            "es_mercancia_valida",
+            "es_ciudad_valida",
+            "es_solicitud_de_mudanza",
+            "es_solicitud_de_paqueteo",
+        ]
+        if tool_call_name in validation_function_tools:
+            interaction.state = GlobalState.CONVERSATION_FINISHED.value
+        elif tool_call_name == "obtener_ayuda_humana":
+            interaction.state = GlobalState.HUMAN_ESCALATION.value
 
         if classified_as:
             if interaction.interaction_data is None:
