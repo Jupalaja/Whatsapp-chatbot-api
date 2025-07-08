@@ -100,6 +100,39 @@ async def chat_router(
                 classified_as = CategoriaClasificacion(high_confidence_categories[0])
             elif len(high_confidence_categories) > 1:
                 classified_as = CategoriaClasificacion.OTRO
+                
+                logger.info(f"Ambiguous interaction for sessionId {interaction_request.sessionId} due to multiple high confidence categories, escalating to human.")
+                from src.shared.tools import obtener_ayuda_humana
+                from src.shared.enums import InteractionType
+                
+                assistant_message = InteractionMessage(
+                    role=InteractionType.MODEL,
+                    message=obtener_ayuda_humana(),
+                )
+                history_messages.append(assistant_message)
+
+                if not interaction:
+                    interaction = models.Interaction(
+                        session_id=interaction_request.sessionId,
+                        messages=[],
+                    )
+                    db.add(interaction)
+                
+                interaction.messages = [msg.model_dump(mode="json") for msg in history_messages]
+                interaction.state = GlobalState.HUMAN_ESCALATION.value
+                if interaction.interaction_data is None:
+                    interaction.interaction_data = {}
+                interaction.interaction_data["classifiedAs"] = classified_as.value
+                
+                await db.commit()
+
+                return InteractionResponse(
+                    sessionId=interaction_request.sessionId,
+                    messages=[assistant_message],
+                    toolCall="obtener_ayuda_humana",
+                    state=interaction.state,
+                    classifiedAs=classified_as,
+                )
 
         # If a specific classification is found (and not OTRO), route to the specific handler without using the generic message.
         if classified_as and classified_as != CategoriaClasificacion.OTRO and tool_call_name not in validation_tools:
