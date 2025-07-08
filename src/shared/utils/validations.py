@@ -110,7 +110,8 @@ def es_solicitud_de_mudanza(es_mudanza: bool) -> bool:
 
 def es_solicitud_de_paqueteo(es_paqueteo: bool) -> bool:
     """
-    Determina si la solicitud del cliente es para paquetes pequeños.
-    El modelo debe analizar el tipo de mercancía y la descripción del usuario y llamar a esta función con `es_paqueteo=True` si corresponde a un servicio de 'paqueteo' qu consiste en transporte de mercancía de bajo peso y poco tamaño.
+    Determina si la solicitud del cliente es para paquetes pequeños ("paqueteo").
+    El modelo debe analizar la descripción del usuario y llamar a esta función con `es_paqueteo=True` si la solicitud es para "paqueteo".
+    Se considera "paqueteo" el transporte de mercancía de bajo peso y volumen. Esto incluye solicitudes con peso inferior a una tonelada (ej. "300 kilos", "media tonelada") o que usen términos como "paquete pequeño".
     """
     return es_paqueteo
