@@ -32,6 +32,9 @@ async def handle(
     continuing a conversation by loading history from the database,
     appending the new message, and saving the updated history.
     """
+    logger.info(
+        f"Handling 'candidato-a-empleo' request for session: {interaction_request.sessionId}"
+    )
     client: genai.Client = request.app.state.genai_client
     sheets_service: Optional[GoogleSheetsService] = request.app.state.sheets_service
 

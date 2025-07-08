@@ -50,6 +50,7 @@ async def workflow_tipo_de_interaccion(
     response_classification = await client.aio.models.generate_content(
         model=model, contents=genai_history, config=classification_config
     )
+    logger.debug(f"Classification response from model: {response_classification}")
 
     clasificacion = None
     if response_classification.function_calls:

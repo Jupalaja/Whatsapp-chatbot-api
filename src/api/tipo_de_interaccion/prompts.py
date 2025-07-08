@@ -56,7 +56,7 @@ Analiza el mensaje del usuario y proporciona puntuaciones de confianza para TODA
     - Información sobre carreras.
     - Procesos de entrevista.
     - Cultura y beneficios de la empresa.
-    - **Ejemplos de frases:** "Quiero trabajar con ustedes", "busco empleo como conductor", "quiero cargar con ustedes", "cómo aplico para una vacante".
+    - **Ejemplos de frases:** "Quiero trabajar con ustedes", "busco empleo como conductor", "cómo aplico para una vacante", "quiero saber si están contratando".
 
 **CRITERIOS DE EVALUACIÓN:** Para cada categoría, considera:
 - **Palabras clave y terminología** utilizadas en el mensaje.
