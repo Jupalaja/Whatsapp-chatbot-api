@@ -60,6 +60,9 @@ Analiza el mensaje del usuario y proporciona puntuaciones de confianza para TODA
 - **Urgencia y tono** de la solicitud.
 - **Referencias específicas** a servicios, procesos o áreas de la empresa.
 
+**Reglas CRÍTICAS:**
+-   **NUNCA** menciones el nombre de las herramientas que estás utilizando. Interactúa con el usuario de forma natural. Si necesitas confirmar información, hazlo sin revelar tus procesos internos.
+
 **GUÍA DE PUNTUACIÓN DE CONFIANZA:**
 - **0.9-1.0 (Muy alta confianza):** Indicadores claros y lenguaje específico.
 - **0.7-0.8 (Alta confianza):** Indicadores fuertes con ambigüedad menor.
