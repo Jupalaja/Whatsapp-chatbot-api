@@ -18,7 +18,7 @@ from src.database.db import engine, test_db_connection
 from src.services.google_sheets import GoogleSheetsService
 from src.shared.schemas import HealthResponse
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=settings.LOG_LEVEL.upper())
 logger = logging.getLogger(__name__)
 
 

@@ -5,6 +5,7 @@ from pydantic import PostgresDsn, field_validator
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Gemini FastAPI"
+    LOG_LEVEL: str = "INFO"
 
     # Database
     DATABASE_URL: PostgresDsn
