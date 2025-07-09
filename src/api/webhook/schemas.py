@@ -10,9 +10,14 @@ class WebhookMessageContextInfo(BaseModel):
     deviceListMetadata: Optional[WebhookDeviceListMetadata] = None
 
 
+class ListResponseMessage(BaseModel):
+    title: str
+
+
 class WebhookMessage(BaseModel):
     conversation: Optional[str] = None
     messageContextInfo: Optional[WebhookMessageContextInfo] = None
+    listResponseMessage: Optional[ListResponseMessage] = None
 
 
 class WebhookKey(BaseModel):

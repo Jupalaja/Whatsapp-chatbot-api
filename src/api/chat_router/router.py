@@ -59,6 +59,10 @@ async def _chat_router_logic(
 
     history_messages.append(interaction_request.message)
 
+    user_message_count = sum(
+        1 for msg in history_messages if msg.role == InteractionType.USER
+    )
+
     if classified_as:
         logger.info(
             f"Session {session_id} already classified as '{classified_as.value}'. Routing to specific handler."
@@ -148,6 +152,44 @@ async def _chat_router_logic(
             else:
                 logger.info(
                     f"Session {session_id} could not be classified with high confidence."
+                )
+
+        if user_message_count == 1 and not classified_as:
+            special_list_sent = (
+                interaction
+                and interaction.interaction_data
+                and interaction.interaction_data.get("special_list_sent")
+            )
+            if not special_list_sent:
+                logger.info(
+                    f"Session {session_id} is a first-time unclassified interaction. Sending special list message."
+                )
+                if not interaction:
+                    interaction = models.Interaction(
+                        session_id=session_id,
+                        messages=[msg.model_dump(mode="json") for msg in history_messages],
+                        user_data=interaction_request.userData,
+                        interaction_data={"special_list_sent": True},
+                    )
+                    db.add(interaction)
+                else:
+                    if interaction.interaction_data is None:
+                        interaction.interaction_data = {}
+                    interaction.interaction_data["special_list_sent"] = True
+                    interaction.messages = [
+                        msg.model_dump(mode="json") for msg in history_messages
+                    ]
+                    if interaction_request.userData:
+                        interaction.user_data = interaction_request.userData
+
+                await db.commit()
+
+                return InteractionResponse(
+                    sessionId=session_id,
+                    messages=[],
+                    toolCall="send_special_list_message",
+                    state=interaction.state,
+                    classifiedAs=None,
                 )
 
         # If a specific classification is found (and not OTRO), route to the specific handler without using the generic message.

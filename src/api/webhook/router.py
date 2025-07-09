@@ -57,6 +57,78 @@ async def send_whatsapp_message(phone_number: str, message: str):
             )
 
 
+async def send_whatsapp_list_message(phone_number: str):
+    """
+    Sends a list message to a phone number using the WhatsApp API.
+    """
+    if not all(
+        [
+            settings.WHATSAPP_SERVER_URL,
+            settings.WHATSAPP_SERVER_API_KEY,
+            settings.WHATSAPP_SERVER_INSTANCE_NAME,
+        ]
+    ):
+        logger.warning(
+            "WhatsApp server settings are not configured. Skipping message sending."
+        )
+        return
+
+    url = f"{settings.WHATSAPP_SERVER_URL}/message/sendList/{settings.WHATSAPP_SERVER_INSTANCE_NAME}"
+    headers = {"apikey": settings.WHATSAPP_SERVER_API_KEY}
+    payload = {
+        "number": phone_number,
+        "title": "Gracias por comunicarte con Botero Soto",
+        "description": "Queremos identificar rápidamente tu solicitud, por favor selecciona entre una de las siguientes opciones👇",
+        "buttonText": "Haz click aquí",
+        "footerText": "",
+        "sections": [
+            {
+                "title": "",
+                "rows": [
+                    {"title": "Quiero realizar una cotizacion", "rowId": "rowId 001"},
+                    {
+                        "title": "Quiero consultar donde está mi vehículo",
+                        "rowId": "rowId 002",
+                    },
+                    {
+                        "title": "Quiero saber si están contratando conductores en este momento",
+                        "rowId": "rowId 003",
+                    },
+                    {
+                        "title": "Trabajé allí, quiero solicitar un certificado laboral",
+                        "rowId": "rowId 004",
+                    },
+                    {
+                        "title": "A quién puedo consultar para ofrecer un producto para la venta?",
+                        "rowId": "rowId 005",
+                    },
+                    {
+                        "title": "Quiero averiguar sobre la liquidación de un manifiesto",
+                        "rowId": "rowId 006",
+                    },
+                ],
+            }
+        ],
+    }
+
+    async with httpx.AsyncClient() as client:
+        try:
+            res = await client.post(url, headers=headers, json=payload)
+            res.raise_for_status()
+            logger.info(
+                f"Successfully sent WhatsApp list message to {phone_number}. Response: {res.text}"
+            )
+        except httpx.HTTPStatusError as e:
+            logger.error(
+                f"Failed to send WhatsApp list message to {phone_number}. Status: {e.response.status_code}, Response: {e.response.text}"
+            )
+        except Exception as e:
+            logger.error(
+                f"An unexpected error occurred while sending WhatsApp list message to {phone_number}: {e}",
+                exc_info=True,
+            )
+
+
 async def process_webhook_event(
     event: WebhookEvent, client: genai.Client, sheets_service: GoogleSheetsService
 ):
@@ -75,8 +147,14 @@ async def process_webhook_event(
         )
 
     message_text = None
-    if event.data.message and event.data.message.conversation:
-        message_text = event.data.message.conversation
+    if event.data.message:
+        if event.data.message.conversation:
+            message_text = event.data.message.conversation
+        elif (
+            event.data.message.listResponseMessage
+            and event.data.message.listResponseMessage.title
+        ):
+            message_text = event.data.message.listResponseMessage.title
 
     from_me = event.data.key.fromMe
     event_type = event.event
@@ -127,9 +205,12 @@ async def process_webhook_event(
                 response = await _chat_router_logic(
                     interaction_request, client, sheets_service, db
                 )
-                if response and response.messages and phone_number:
-                    for msg in response.messages:
-                        await send_whatsapp_message(phone_number, msg.message)
+                if phone_number:
+                    if response.toolCall == "send_special_list_message":
+                        await send_whatsapp_list_message(phone_number)
+                    elif response.messages:
+                        for msg in response.messages:
+                            await send_whatsapp_message(phone_number, msg.message)
         except Exception as e:
             logger.error(
                 f"Error processing webhook event for session {session_id}: {e}",
