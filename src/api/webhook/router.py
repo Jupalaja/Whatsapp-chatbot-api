@@ -4,6 +4,7 @@ import json
 from fastapi import APIRouter, Request, BackgroundTasks, HTTPException
 from pydantic import ValidationError
 import google.genai as genai
+import httpx
 
 from src.config import settings
 from src.api.chat_router.router import _chat_router_logic
@@ -15,6 +16,44 @@ from .schemas import WebhookEvent
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+async def send_whatsapp_message(phone_number: str, message: str):
+    """
+    Sends a message to a phone number using the WhatsApp API.
+    """
+    if not all(
+        [
+            settings.WHATSAPP_SERVER_URL,
+            settings.WHATSAPP_SERVER_API_KEY,
+            settings.WHATSAPP_SERVER_INSTANCE_NAME,
+        ]
+    ):
+        logger.warning(
+            "WhatsApp server settings are not configured. Skipping message sending."
+        )
+        return
+
+    url = f"{settings.WHATSAPP_SERVER_URL}/message/sendText/{settings.WHATSAPP_SERVER_INSTANCE_NAME}"
+    headers = {"apikey": settings.WHATSAPP_SERVER_API_KEY}
+    payload = {"number": phone_number, "text": message}
+
+    async with httpx.AsyncClient() as client:
+        try:
+            res = await client.post(url, headers=headers, json=payload)
+            res.raise_for_status()
+            logger.info(
+                f"Successfully sent WhatsApp message to {phone_number}. Response: {res.text}"
+            )
+        except httpx.HTTPStatusError as e:
+            logger.error(
+                f"Failed to send WhatsApp message to {phone_number}. Status: {e.response.status_code}, Response: {e.response.text}"
+            )
+        except Exception as e:
+            logger.error(
+                f"An unexpected error occurred while sending WhatsApp message to {phone_number}: {e}",
+                exc_info=True,
+            )
 
 
 async def process_webhook_event(
@@ -50,8 +89,10 @@ async def process_webhook_event(
         logger.info(f"Processing webhook for session_id: {session_id}")
 
         user_data = {}
+        phone_number = None
         if event.data.key.remoteJid:
-            user_data["phoneNumber"] = event.data.key.remoteJid.split("@")[0]
+            phone_number = event.data.key.remoteJid.split("@")[0]
+            user_data["phoneNumber"] = phone_number
         if event.data.pushName:
             user_data["tagName"] = event.data.pushName
 
@@ -64,7 +105,12 @@ async def process_webhook_event(
         try:
             # We need a new DB session for the background task
             async with AsyncSessionFactory() as db:
-                await _chat_router_logic(interaction_request, client, sheets_service, db)
+                response = await _chat_router_logic(
+                    interaction_request, client, sheets_service, db
+                )
+                if response and response.messages and phone_number:
+                    for msg in response.messages:
+                        await send_whatsapp_message(phone_number, msg.message)
         except Exception as e:
             logger.error(
                 f"Error processing webhook event for session {session_id}: {e}",
