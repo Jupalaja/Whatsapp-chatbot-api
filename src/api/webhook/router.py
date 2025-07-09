@@ -174,14 +174,16 @@ async def process_webhook_event(
         if message_text.strip().upper() == "RESET":
             logger.info(f"Received RESET command for session_id: {session_id}")
             async with AsyncSessionFactory() as db:
-                interaction_to_delete = await db.get(models.Interaction, session_id)
-                if interaction_to_delete:
-                    await db.delete(interaction_to_delete)
+                interaction = await db.get(models.Interaction, session_id)
+                if interaction:
+                    if interaction.interaction_data is None:
+                        interaction.interaction_data = {}
+                    interaction.interaction_data["is_deleted"] = True
                     await db.commit()
-                    logger.info(f"Deleted interaction for session_id: {session_id}")
+                    logger.info(f"Soft deleted interaction for session_id: {session_id}")
                 else:
                     logger.info(
-                        f"No interaction found for session_id: {session_id}, nothing to delete."
+                        f"No interaction found for session_id: {session_id}, nothing to reset."
                     )
             if phone_number:
                 await send_whatsapp_message(phone_number, "El chat ha sido reiniciado")
