@@ -139,12 +139,19 @@ async def workflow_tipo_de_interaccion(
                     return [assistant_message], clasificacion, function_call.name
                     
             elif function_call.name == "obtener_ayuda_humana":
-                tool_call_name = "obtener_ayuda_humana"
-                logger.info("User requires human help.")
-                assistant_message = InteractionMessage(
-                    role=InteractionType.MODEL, message=obtener_ayuda_humana()
-                )
-                return [assistant_message], clasificacion, tool_call_name
+                # Only call human help if explicitly requested or if there's a genuine need
+                # Don't call it just because we can't classify with high confidence
+                user_message = history_messages[-1].message.lower() if history_messages else ""
+                
+                # Check if user explicitly requested human help
+                human_help_keywords = ["ayuda", "humano", "persona", "agente", "hablar con alguien"]
+                if any(keyword in user_message for keyword in human_help_keywords):
+                    tool_call_name = "obtener_ayuda_humana"
+                    logger.info("User explicitly requested human help.")
+                    assistant_message = InteractionMessage(
+                        role=InteractionType.MODEL, message=obtener_ayuda_humana()
+                    )
+                    return [assistant_message], clasificacion, tool_call_name
 
     if not assistant_message and response_chat.text:
         assistant_message = InteractionMessage(

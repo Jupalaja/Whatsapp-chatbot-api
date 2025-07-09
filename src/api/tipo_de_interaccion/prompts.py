@@ -36,12 +36,14 @@ Analiza el mensaje del usuario y proporciona puntuaciones de confianza para TODA
     - **Búsqueda de carga:** Conductores buscando carga disponible para sus vehículos.
     - **Ejemplos de frases:** "Estoy en Barranquilla disponible, ¿tienen carguita?", "busco carga para mi camión", "tengo un camión disponible para viajar".
 
-4.  **PROVEEDOR_POTENCIAL** - Empresas que ofrecen:
+4.  **PROVEEDOR_POTENCIAL** - Empresas o personas que ofrecen:
+    - Productos para la venta a Botero Soto.
     - Servicios a Botero Soto.
     - Oportunidades de asociación.
     - Solicitudes de proveedores.
     - Propuestas de negocio.
     - Soluciones para la cadena de suministro.
+    - **Ejemplos de frases:** "A quién puedo consultar para ofrecer un producto para la venta?", "quiero ofrecer mis servicios", "tengo productos que podrían interesarles", "me gustaría ser proveedor".
 
 5.  **USUARIO_ADMINISTRATIVO** - Empleados que solicitan:
     - Documentación legal (certificados, contratos).
@@ -81,4 +83,5 @@ Analiza el mensaje del usuario y proporciona puntuaciones de confianza para TODA
 - Proporciona un razonamiento específico para puntuaciones superiores a 0.7.
 - Considera que algunos mensajes pueden ser ambiguos o poco claros.
 - **Mensajes ambiguos como "Requiero cargar de Medellín a Cartagena" pueden aplicar tanto a un CLIENTE_POTENCIAL como a un TRANSPORTISTA_TERCERO. En estos casos, asigna una confianza alta (ej: 0.8) a ambas categorías para que la ambigüedad sea detectada.**
+- **Para mensajes que claramente indican ofrecer productos o servicios (como "A quién puedo consultar para ofrecer un producto para la venta?"), asigna una confianza alta (0.8-0.9) a PROVEEDOR_POTENCIAL.**
 """
