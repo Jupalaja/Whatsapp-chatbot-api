@@ -43,9 +43,12 @@ async def _chat_router_logic(
     interaction = await db.get(models.Interaction, session_id)
 
     # Check if the interaction is soft deleted
-    if interaction and interaction.interaction_data and interaction.interaction_data.get("is_deleted"):
+    if interaction and interaction.is_deleted:
         logger.info(f"Session {session_id} is marked as deleted, treating as new conversation")
-        interaction = None
+        interaction.is_deleted = False
+        interaction.messages = []
+        interaction.state = None
+        interaction.interaction_data = {}
 
     history_messages = []
     classified_as = None
@@ -144,7 +147,6 @@ async def _chat_router_logic(
                 if interaction.interaction_data is None:
                     interaction.interaction_data = {}
                 interaction.interaction_data["classifiedAs"] = classified_as.value
-                interaction.interaction_data["is_deleted"] = False
 
                 await db.commit()
 
@@ -175,14 +177,13 @@ async def _chat_router_logic(
                         session_id=session_id,
                         messages=[msg.model_dump(mode="json") for msg in history_messages],
                         user_data=interaction_request.userData,
-                        interaction_data={"special_list_sent": True, "is_deleted": False},
+                        interaction_data={"special_list_sent": True},
                     )
                     db.add(interaction)
                 else:
                     if interaction.interaction_data is None:
                         interaction.interaction_data = {}
                     interaction.interaction_data["special_list_sent"] = True
-                    interaction.interaction_data["is_deleted"] = False
                     interaction.messages = [
                         msg.model_dump(mode="json") for msg in history_messages
                     ]
@@ -221,7 +222,6 @@ async def _chat_router_logic(
             if interaction.interaction_data is None:
                 interaction.interaction_data = {}
             interaction.interaction_data["classifiedAs"] = classified_as.value
-            interaction.interaction_data["is_deleted"] = False
             await db.commit()
 
             return await _route_to_specific_handler(
@@ -265,10 +265,6 @@ async def _chat_router_logic(
             if interaction.interaction_data is None:
                 interaction.interaction_data = {}
             interaction.interaction_data["classifiedAs"] = classified_as.value
-
-        if interaction.interaction_data is None:
-            interaction.interaction_data = {}
-        interaction.interaction_data["is_deleted"] = False
 
         await db.commit()
 
@@ -469,9 +465,6 @@ async def _route_to_specific_handler(
             interaction.messages = [msg.model_dump(mode="json") for msg in history_messages]
             interaction.state = next_state.value if hasattr(next_state, 'value') else next_state
             interaction.interaction_data = new_interaction_data
-            if interaction.interaction_data is None:
-                interaction.interaction_data = {}
-            interaction.interaction_data["is_deleted"] = False
         else:
             interaction = models.Interaction(
                 session_id=interaction_request.sessionId,
@@ -480,9 +473,6 @@ async def _route_to_specific_handler(
                 interaction_data=new_interaction_data,
                 user_data=interaction_request.userData,
             )
-            if interaction.interaction_data is None:
-                interaction.interaction_data = {}
-            interaction.interaction_data["is_deleted"] = False
             db.add(interaction)
 
         await db.commit()

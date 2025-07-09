@@ -1,5 +1,6 @@
 import logging
 import json
+import uuid
 
 from fastapi import APIRouter, Request, BackgroundTasks, HTTPException
 from pydantic import ValidationError
@@ -176,11 +177,15 @@ async def process_webhook_event(
             async with AsyncSessionFactory() as db:
                 interaction = await db.get(models.Interaction, session_id)
                 if interaction:
-                    if interaction.interaction_data is None:
-                        interaction.interaction_data = {}
-                    interaction.interaction_data["is_deleted"] = True
+                    # Generate new session_id for the deleted conversation
+                    random_uuid = str(uuid.uuid4())[:8]
+                    new_session_id = f"DELETED-{session_id}-{random_uuid}"
+                    
+                    # Update the session_id and mark as deleted
+                    interaction.session_id = new_session_id
+                    interaction.is_deleted = True
                     await db.commit()
-                    logger.info(f"Soft deleted interaction for session_id: {session_id}")
+                    logger.info(f"Soft deleted interaction for session_id: {session_id}, new session_id: {new_session_id}")
                 else:
                     logger.info(
                         f"No interaction found for session_id: {session_id}, nothing to reset."
