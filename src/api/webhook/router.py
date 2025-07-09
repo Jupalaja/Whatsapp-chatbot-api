@@ -30,9 +30,12 @@ async def process_webhook_event(
     if (
         event.data.message
         and event.data.message.messageContextInfo
-        and event.data.message.messageContextInfo.senderKeyHash
+        and event.data.message.messageContextInfo.deviceListMetadata
+        and event.data.message.messageContextInfo.deviceListMetadata.senderKeyHash
     ):
-        session_id = event.data.message.messageContextInfo.senderKeyHash
+        session_id = (
+            event.data.message.messageContextInfo.deviceListMetadata.senderKeyHash
+        )
 
     message_text = None
     if event.data.message and event.data.message.conversation:
@@ -63,6 +66,10 @@ async def process_webhook_event(
                 f"Error processing webhook event for session {session_id}: {e}",
                 exc_info=True,
             )
+    else:
+        logger.info(
+            f"Skipping webhook event processing. Details: event_type='{event_type}', from_me={from_me}, has_session_id={bool(session_id)}, has_message_text={bool(message_text)}"
+        )
 
 
 @router.post(f"/webhook/{WEBHOOK_PATH}", status_code=200)

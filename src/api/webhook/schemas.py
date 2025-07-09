@@ -2,8 +2,12 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 
-class WebhookMessageContextInfo(BaseModel):
+class WebhookDeviceListMetadata(BaseModel):
     senderKeyHash: Optional[str] = None
+
+
+class WebhookMessageContextInfo(BaseModel):
+    deviceListMetadata: Optional[WebhookDeviceListMetadata] = None
 
 
 class WebhookMessage(BaseModel):
