@@ -216,8 +216,22 @@ async def _workflow_remaining_information_provided(
         responsable = search_result.get("responsable_comercial")
         if responsable:
             responsable_formateado = formatear_nombre_responsable(responsable)
+            email = search_result.get("email")
+            telefono = search_result.get("phoneNumber")
+
+            contact_details = ""
+            if email and telefono:
+                contact_details = (
+                    f" Lo puedes contactar al correo *{email}* o al teléfono *{telefono}*."
+                )
+            elif email:
+                contact_details = f" Lo puedes contactar al correo *{email}*."
+            elif telefono:
+                contact_details = f" Lo puedes contactar al teléfono *{telefono}*."
+
             assistant_message_text = PROMPT_CONTACTAR_AGENTE_ASIGNADO.format(
-                responsable_comercial=responsable_formateado
+                responsable_comercial=responsable_formateado,
+                contact_details=contact_details,
             )
         else:  # Fallback if contact info is missing
             assistant_message_text = PROMPT_ASIGNAR_AGENTE_COMERCIAL
@@ -230,9 +244,9 @@ async def _workflow_remaining_information_provided(
     return (
         [
             InteractionMessage(
-                role=InteractionType.MODEL, 
+                role=InteractionType.MODEL,
                 message=assistant_message_text,
-                tool_calls=[tool_call_name] if tool_call_name else None
+                tool_calls=[tool_call_name] if tool_call_name else None,
             )
         ],
         next_state,
@@ -270,11 +284,13 @@ async def _workflow_awaiting_nit(
                 if found_record:
                     logger.info(f"Found NIT {nit} in Google Sheet: {found_record}")
                     search_result = {
-                        "cliente": found_record.get(" Cliente"),
-                        "estado": found_record.get(" Estado del cliente"),
+                        "cliente": found_record.get("Cliente"),
+                        "estado": found_record.get("Estado del cliente"),
                         "responsable_comercial": found_record.get(
                             " RESPONSABLE COMERCIAL"
                         ),
+                        "phoneNumber": found_record.get("CELULAR"),
+                        "email": found_record.get("CORREO"),
                     }
                     # Strip whitespace from string values
                     for key, value in search_result.items():
