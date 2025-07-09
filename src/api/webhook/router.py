@@ -1,6 +1,5 @@
 import logging
 import json
-from typing import List
 
 from fastapi import APIRouter, Request, BackgroundTasks, HTTPException
 from pydantic import ValidationError
@@ -51,11 +50,18 @@ async def process_webhook_event(
         and message_text
     ):
         logger.info(f"Processing webhook for session_id: {session_id}")
+
+        user_data = {}
+        if event.data.key.remoteJid:
+            user_data["phoneNumber"] = event.data.key.remoteJid.split("@")[0]
+        if event.data.pushName:
+            user_data["tagName"] = event.data.pushName
+
         interaction_message = InteractionMessage(
             role=InteractionType.USER, message=message_text
         )
         interaction_request = InteractionRequest(
-            sessionId=session_id, message=interaction_message
+            sessionId=session_id, message=interaction_message, userData=user_data
         )
         try:
             # We need a new DB session for the background task

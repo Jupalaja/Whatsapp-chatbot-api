@@ -30,6 +30,7 @@ class InteractionMessage(BaseModel):
 class InteractionRequest(BaseModel):
     sessionId: str = Field(..., min_length=4)
     message: InteractionMessage
+    userData: Optional[dict] = None
 
 
 class InteractionResponse(BaseModel):

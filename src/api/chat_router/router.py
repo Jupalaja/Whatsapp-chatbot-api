@@ -122,8 +122,11 @@ async def _chat_router_logic(
                     interaction = models.Interaction(
                         session_id=session_id,
                         messages=[],
+                        user_data=interaction_request.userData,
                     )
                     db.add(interaction)
+                elif interaction_request.userData:
+                    interaction.user_data = interaction_request.userData
 
                 interaction.messages = [
                     msg.model_dump(mode="json") for msg in history_messages
@@ -160,8 +163,11 @@ async def _chat_router_logic(
                 interaction = models.Interaction(
                     session_id=session_id,
                     messages=[msg.model_dump(mode="json") for msg in history_messages],
+                    user_data=interaction_request.userData,
                 )
                 db.add(interaction)
+            elif interaction_request.userData:
+                interaction.user_data = interaction_request.userData
 
             if interaction.interaction_data is None:
                 interaction.interaction_data = {}
@@ -184,10 +190,13 @@ async def _chat_router_logic(
             interaction.messages = [
                 msg.model_dump(mode="json") for msg in history_messages
             ]
+            if interaction_request.userData:
+                interaction.user_data = interaction_request.userData
         else:
             interaction = models.Interaction(
                 session_id=session_id,
                 messages=[msg.model_dump(mode="json") for msg in history_messages],
+                user_data=interaction_request.userData,
             )
             db.add(interaction)
 
@@ -256,6 +265,9 @@ async def _route_to_specific_handler(
     """Routes the request to the appropriate specific handler based on classification."""
     
     interaction = await db.get(models.Interaction, interaction_request.sessionId)
+
+    if interaction and interaction_request.userData:
+        interaction.user_data = interaction_request.userData
     
     interaction_data = None
     if interaction and interaction.interaction_data:
@@ -409,6 +421,7 @@ async def _route_to_specific_handler(
                 messages=[msg.model_dump(mode="json") for msg in history_messages],
                 state=next_state.value if hasattr(next_state, 'value') else next_state,
                 interaction_data=new_interaction_data,
+                user_data=interaction_request.userData,
             )
             db.add(interaction)
 
