@@ -13,6 +13,7 @@ from src.api.proveedor_potencial import router as proveedor_potencial
 from src.api.usuario_administrativo import router as usuario_administrativo
 from src.api.candidato_a_empleo import router as candidato_a_empleo
 from src.api.transportista import router as transportista
+from src.api.webhook import router as webhook_router
 from src.config import settings
 from src.database.db import engine, test_db_connection
 from src.services.google_sheets import GoogleSheetsService
@@ -57,6 +58,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
 
 app.include_router(chat_router.router, prefix="/api/v1", tags=["Chat Router"])
+app.include_router(webhook_router.router, prefix="/api/v1", tags=["Webhook"])
 app.include_router(interaction.router, prefix="/api/v1", tags=["Interaction"])
 app.include_router(tipo_de_interaccion.router, prefix="/api/v1", tags=["Tipo de Interacción"])
 app.include_router(cliente_potencial.router, prefix="/api/v1", tags=["Cliente Potencial"])

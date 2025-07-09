@@ -6,7 +6,7 @@ import google.genai as genai
 from google.genai import errors
 
 from src.database.db import get_db
-from src.shared.enums import CategoriaClasificacion
+from src.shared.enums import CategoriaClasificacion, InteractionType
 from src.shared.schemas import InteractionMessage, InteractionRequest, InteractionResponse
 from src.api.tipo_de_interaccion.handler import handle_tipo_de_interaccion
 from src.api.cliente_potencial.handler import handle_cliente_potencial
@@ -25,31 +25,26 @@ from src.database import models
 from src.services.google_sheets import GoogleSheetsService
 from src.shared.constants import CLASSIFICATION_THRESHOLD
 from src.shared.state import GlobalState
+from src.shared.tools import obtener_ayuda_humana
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-@router.post("/chat-router", response_model=InteractionResponse)
-async def chat_router(
+async def _chat_router_logic(
     interaction_request: InteractionRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Routes chat messages through classification logic, mimicking the n8n workflow.
-    First classifies the interaction type, then routes to the appropriate handler.
-    """
+    client: genai.Client,
+    sheets_service: GoogleSheetsService,
+    db: AsyncSession,
+) -> InteractionResponse:
     session_id = interaction_request.sessionId
-    logger.info(f"Chat router triggered for session_id: {session_id}")
-    client: genai.Client = request.app.state.genai_client
-    sheets_service: GoogleSheetsService = request.app.state.sheets_service
+    logger.info(f"Chat router logic triggered for session_id: {session_id}")
 
     interaction = await db.get(models.Interaction, session_id)
-    
+
     history_messages = []
     classified_as = None
-    
+
     if interaction:
         history_messages = [
             InteractionMessage.model_validate(msg) for msg in interaction.messages
@@ -65,7 +60,9 @@ async def chat_router(
     history_messages.append(interaction_request.message)
 
     if classified_as:
-        logger.info(f"Session {session_id} already classified as '{classified_as.value}'. Routing to specific handler.")
+        logger.info(
+            f"Session {session_id} already classified as '{classified_as.value}'. Routing to specific handler."
+        )
         return await _route_to_specific_handler(
             classified_as=classified_as,
             interaction_request=interaction_request,
@@ -76,7 +73,9 @@ async def chat_router(
         )
 
     try:
-        logger.info(f"Session {session_id} not classified. Calling 'handle_tipo_de_interaccion'.")
+        logger.info(
+            f"Session {session_id} not classified. Calling 'handle_tipo_de_interaccion'."
+        )
         (
             classification_messages,
             clasificacion,
@@ -88,13 +87,13 @@ async def chat_router(
         logger.info(f"Classification result for session {session_id}: {clasificacion}")
 
         validation_tools = [
-            "es_mercancia_valida", 
-            "es_ciudad_valida", 
-            "es_solicitud_de_mudanza", 
+            "es_mercancia_valida",
+            "es_ciudad_valida",
+            "es_solicitud_de_mudanza",
             "es_solicitud_de_paqueteo",
-            "obtener_ayuda_humana"
+            "obtener_ayuda_humana",
         ]
-        
+
         if clasificacion:
             high_confidence_categories = [
                 p.categoria
@@ -103,14 +102,16 @@ async def chat_router(
             ]
             if len(high_confidence_categories) == 1:
                 classified_as = CategoriaClasificacion(high_confidence_categories[0])
-                logger.info(f"Session {session_id} classified as '{classified_as.value}' with high confidence.")
+                logger.info(
+                    f"Session {session_id} classified as '{classified_as.value}' with high confidence."
+                )
             elif len(high_confidence_categories) > 1:
                 classified_as = CategoriaClasificacion.OTRO
-                
-                logger.info(f"Ambiguous interaction for sessionId {session_id} due to multiple high confidence categories, escalating to human.")
-                from src.shared.tools import obtener_ayuda_humana
-                from src.shared.enums import InteractionType
-                
+
+                logger.info(
+                    f"Ambiguous interaction for sessionId {session_id} due to multiple high confidence categories, escalating to human."
+                )
+
                 assistant_message = InteractionMessage(
                     role=InteractionType.MODEL,
                     message=obtener_ayuda_humana(),
@@ -123,13 +124,15 @@ async def chat_router(
                         messages=[],
                     )
                     db.add(interaction)
-                
-                interaction.messages = [msg.model_dump(mode="json") for msg in history_messages]
+
+                interaction.messages = [
+                    msg.model_dump(mode="json") for msg in history_messages
+                ]
                 interaction.state = GlobalState.HUMAN_ESCALATION.value
                 if interaction.interaction_data is None:
                     interaction.interaction_data = {}
                 interaction.interaction_data["classifiedAs"] = classified_as.value
-                
+
                 await db.commit()
 
                 return InteractionResponse(
@@ -140,11 +143,19 @@ async def chat_router(
                     classifiedAs=classified_as,
                 )
             else:
-                logger.info(f"Session {session_id} could not be classified with high confidence.")
+                logger.info(
+                    f"Session {session_id} could not be classified with high confidence."
+                )
 
         # If a specific classification is found (and not OTRO), route to the specific handler without using the generic message.
-        if classified_as and classified_as != CategoriaClasificacion.OTRO and tool_call_name not in validation_tools:
-            logger.info(f"Routing session {session_id} to handler for '{classified_as.value}'.")
+        if (
+            classified_as
+            and classified_as != CategoriaClasificacion.OTRO
+            and tool_call_name not in validation_tools
+        ):
+            logger.info(
+                f"Routing session {session_id} to handler for '{classified_as.value}'."
+            )
             if not interaction:
                 interaction = models.Interaction(
                     session_id=session_id,
@@ -170,7 +181,9 @@ async def chat_router(
         history_messages.extend(classification_messages)
 
         if interaction:
-            interaction.messages = [msg.model_dump(mode="json") for msg in history_messages]
+            interaction.messages = [
+                msg.model_dump(mode="json") for msg in history_messages
+            ]
         else:
             interaction = models.Interaction(
                 session_id=session_id,
@@ -213,6 +226,23 @@ async def chat_router(
             status_code=500,
             detail="An unexpected error occurred. Check server logs and environment variables.",
         )
+
+
+@router.post("/chat-router", response_model=InteractionResponse)
+async def chat_router(
+    interaction_request: InteractionRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Routes chat messages through classification logic, mimicking the n8n workflow.
+    First classifies the interaction type, then routes to the appropriate handler.
+    """
+    session_id = interaction_request.sessionId
+    logger.info(f"Chat router triggered for session_id: {session_id}")
+    client: genai.Client = request.app.state.genai_client
+    sheets_service: GoogleSheetsService = request.app.state.sheets_service
+    return await _chat_router_logic(interaction_request, client, sheets_service, db)
 
 
 async def _route_to_specific_handler(
@@ -353,8 +383,6 @@ async def _route_to_specific_handler(
             )
 
         else:  # OTRO or any other case
-            from src.shared.tools import obtener_ayuda_humana
-            from src.shared.enums import InteractionType
             
             logger.info(f"Routing to 'human_escalation' for session_id: {interaction_request.sessionId}")
             new_assistant_messages = [
