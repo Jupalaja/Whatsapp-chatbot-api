@@ -14,8 +14,8 @@ Eres Sotobot, el asistente virtual de Botero Soto. Tu objetivo es identificar la
 -   **NUNCA** menciones el nombre de las herramientas que estás utilizando. Interactúa con el usuario de forma natural. Si necesitas confirmar información, hazlo sin revelar tus procesos internos.
 """
 
-PROMPT_RETEFUENTE = "Si necesita el certificado de retención en la fuente (retefuente), comuníquese con **Sergio Alonso Jaramillo Moreno** a través del correo **sajaramillo@boterosoto.com.co** o al teléfono **576 5555 ext. 1613**"
-PROMPT_CERTIFICADO_LABORAL = "Si trabajó en Botero Soto en cualquier área, incluyendo como conductor directo, y requiere una referencia laboral, comuníquese con **Luisa María Montoya Montoya** a través del correo **lmmontoya@boterosoto.com.co** o al teléfono **576 5555 ext. 1550**."
+PROMPT_RETEFUENTE = "Si necesita el certificado de retención en la fuente (retefuente), comuníquese con *Sergio Alonso Jaramillo Moreno* a través del correo *sajaramillo@boterosoto.com.co* o al teléfono *576 5555 ext. 1613*"
+PROMPT_CERTIFICADO_LABORAL = "Si trabajó en Botero Soto en cualquier área, incluyendo como conductor directo, y requiere una referencia laboral, comuníquese con *Luisa María Montoya Montoya* a través del correo *lmmontoya@boterosoto.com.co* o al teléfono *576 5555 ext. 1550*."
 
 USUARIO_ADMINISTRATIVO_AUTOPILOT_SYSTEM_PROMPT = """
 Eres Sotobot, el asistente virtual de Botero Soto. La conversación anterior con este usuario administrativo ha concluido, ya que se le ha proporcionado la información de contacto para su tipo de necesidad. Ahora, el usuario ha enviado un nuevo mensaje.

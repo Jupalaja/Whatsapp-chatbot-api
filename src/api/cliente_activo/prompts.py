@@ -16,9 +16,9 @@ Eres Sotobot, el asistente virtual de Botero Soto. Tu objetivo es identificar la
 -   **NUNCA** menciones el nombre de las herramientas que estás utilizando. Interactúa con el usuario de forma natural. Si necesitas confirmar información, hazlo sin revelar tus procesos internos.
 """
 
-PROMPT_TRAZABILIDAD = "Para acceder a los Servicios digitales para clientes, por favor ingresa a este link: https://servicios.boterosoto.com/ClientesWeb_SAP/ En este portal podrás consultar la trazabilidad de tu vehículo con la mercancía y también la trazabilidad documental, donde podrás visualizar documentos como las Notas de Inspección, Remesa firmada y sellada, entre otros.” Si necesitas ayuda para navegar en el portal, puedes ver este video explicativo: https://www.youtube.com/watch?v=Bqwzb2gGBKI"
-PROMPT_BLOQUEOS_CARTERA = "Si tiene problemas de bloqueos por cartera y desea realizar una conciliación, por favor comuníquese con Juan Carlos Restrepo Ochoa a través del correo jcrestrepo@boterosoto.com.co o al teléfono 3054821997."
-PROMPT_FACTURACION = "Si tiene dudas con su factura, como por ejemplo valores distintos a los pactados, por favor comuníquese con Luis A. Betancur Villegas al celular 3166186665 o al correo labetancur@boterosoto.com.co."
+PROMPT_TRAZABILIDAD = "Para acceder a los Servicios digitales para clientes, por favor ingresa a este link: *https://servicios.boterosoto.com/ClientesWeb_SAP/* En este portal podrás consultar la trazabilidad de tu vehículo con la mercancía y también la trazabilidad documental, donde podrás visualizar documentos como las Notas de Inspección, Remesa firmada y sellada, entre otros.” Si necesitas ayuda para navegar en el portal, puedes ver este video explicativo: https://www.youtube.com/watch?v=Bqwzb2gGBKI"
+PROMPT_BLOQUEOS_CARTERA = "Si tiene problemas de bloqueos por cartera y desea realizar una conciliación, por favor comuníquese con *Juan Carlos Restrepo Ochoa* a través del correo *jcrestrepo@boterosoto.com.co* o al teléfono *3054821997.*"
+PROMPT_FACTURACION = "Si tiene dudas con su factura, como por ejemplo valores distintos a los pactados, por favor comuníquese con *Luis A. Betancur Villegas* al celular *3166186665* o al correo *labetancur@boterosoto.com.co.*"
 
 CLIENTE_ACTIVO_AUTOPILOT_SYSTEM_PROMPT = """
 Eres Sotobot, el asistente virtual de Botero Soto. La conversación anterior con este cliente activo ha concluido, ya que se le ha proporcionado la información de contacto para su categoría de consulta. Ahora, el usuario ha enviado un nuevo mensaje.

@@ -12,7 +12,7 @@ Eres Sotobot, el asistente virtual de Botero Soto. Tu objetivo es identificar a 
 -   **NUNCA** menciones el nombre de las herramientas que estás utilizando. Interactúa con el usuario de forma natural. Si necesitas confirmar información, hazlo sin revelar tus procesos internos.
 """
 
-PROMPT_CONTACTO_HOJA_DE_VIDA = "Si desea trabajar en Botero Soto Soluciones Logísticas, ya sea en otras áreas o como conductor con licencia pero sin vehículo propio, comuníquese con **Manuela Gil** **Saldarriaga** y envíe su hoja de vida al correo **hojasdevida@boterosoto.com.co** o al teléfono **310 426 0893**"
+PROMPT_CONTACTO_HOJA_DE_VIDA = "Si desea trabajar en Botero Soto Soluciones Logísticas, ya sea en otras áreas o como conductor con licencia pero sin vehículo propio, comuníquese con *Manuela Gil Saldarriaga* y envíe su hoja de vida al correo *hojasdevida@boterosoto.com.co* o al teléfono *310 426 0893*"
 
 CANDIDATO_A_EMPLEO_AUTOPILOT_SYSTEM_PROMPT = """
 Eres Sotobot, el asistente virtual de Botero Soto. La conversación anterior con este candidato ha concluido, ya que se le ha proporcionado la información de contacto. Ahora, el usuario ha enviado un nuevo mensaje.

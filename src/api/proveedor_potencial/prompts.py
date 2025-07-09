@@ -12,7 +12,7 @@ Eres Sotobot, el asistente virtual de Botero Soto. Tu objetivo es identificar qu
 -   **NUNCA** menciones el nombre de las herramientas que estás utilizando. Interactúa con el usuario de forma natural. Si necesitas confirmar información, hazlo sin revelar tus procesos internos.
 """
 
-PROVEEDOR_POTENCIAL_CONTACT_INFO = "Si desea ofrecer sus servicios y/o productos a Botero Soto, envíe su brochure (portafolio) con la información a **Juan Diego Restrepo** al correo **jdrestrepo@boterosoto.com.co** o al teléfono **322 676 4498**. También puede contactar a **Edwin Alonso Londoño Pérez** al correo **jdrestrepo@boterosoto.com.co** o al teléfono **320 775 9673**."
+PROVEEDOR_POTENCIAL_CONTACT_INFO = "Si desea ofrecer sus servicios y/o productos a Botero Soto, envíe su brochure (portafolio) con la información a *Juan Diego Restrepo* al correo *jdrestrepo@boterosoto.com.co* o al teléfono *322 676 4498*. También puede contactar a *Edwin Alonso Londoño Pérez* al correo *jdrestrepo@boterosoto.com.co* o al teléfono *320 775 9673*."
 
 PROVEEDOR_POTENCIAL_AUTOPILOT_SYSTEM_PROMPT = """
 Eres Sotobot, el asistente virtual de Botero Soto. La conversación anterior con este proveedor potencial ha concluido, ya que se le ha proporcionado la información de contacto. Ahora, el usuario ha enviado un nuevo mensaje.
