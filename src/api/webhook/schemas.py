@@ -22,13 +22,9 @@ class WebhookData(BaseModel):
     message: Optional[WebhookMessage] = None
 
 
-class WebhookBody(BaseModel):
+class WebhookEvent(BaseModel):
     event: str
     data: WebhookData
-
-
-class WebhookEvent(BaseModel):
-    body: WebhookBody
 
 
 WebhookPayload = List[WebhookEvent]

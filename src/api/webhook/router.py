@@ -1,8 +1,9 @@
 import logging
+import json
 from typing import List
 
-from fastapi import APIRouter, Request, BackgroundTasks
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Request, BackgroundTasks, HTTPException
+from pydantic import ValidationError
 import google.genai as genai
 
 from src.api.chat_router.router import _chat_router_logic
@@ -27,18 +28,18 @@ async def process_webhook_event(
     """
     session_id = None
     if (
-        event.body.data.message
-        and event.body.data.message.messageContextInfo
-        and event.body.data.message.messageContextInfo.senderKeyHash
+        event.data.message
+        and event.data.message.messageContextInfo
+        and event.data.message.messageContextInfo.senderKeyHash
     ):
-        session_id = event.body.data.message.messageContextInfo.senderKeyHash
+        session_id = event.data.message.messageContextInfo.senderKeyHash
 
     message_text = None
-    if event.body.data.message and event.body.data.message.conversation:
-        message_text = event.body.data.message.conversation
+    if event.data.message and event.data.message.conversation:
+        message_text = event.data.message.conversation
 
-    from_me = event.body.data.key.fromMe
-    event_type = event.body.event
+    from_me = event.data.key.fromMe
+    event_type = event.event
 
     if (
         event_type == "messages.upsert"
@@ -66,7 +67,6 @@ async def process_webhook_event(
 
 @router.post(f"/webhook/{WEBHOOK_PATH}", status_code=200)
 async def handle_webhook(
-    payload: WebhookPayload,
     request: Request,
     background_tasks: BackgroundTasks,
 ):
@@ -76,6 +76,36 @@ async def handle_webhook(
     logger.info(f"Received webhook on path: /webhook/{WEBHOOK_PATH}")
     client: genai.Client = request.app.state.genai_client
     sheets_service: GoogleSheetsService = request.app.state.sheets_service
+
+    payload_json = None
+    try:
+        payload_json = await request.json()
+        logger.info(f"Webhook payload JSON: {json.dumps(payload_json, indent=2)}")
+
+        # Handle both single object and list of objects
+        events_to_process = (
+            payload_json if isinstance(payload_json, list) else [payload_json]
+        )
+
+        # Manually validate the payload.
+        payload = [WebhookEvent.model_validate(p) for p in events_to_process]
+
+    except json.JSONDecodeError:
+        raw_body = await request.body()
+        logger.error(
+            f"Failed to decode webhook JSON. Raw body: {raw_body.decode('utf-8', errors='ignore')}"
+        )
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+    except ValidationError as e:
+        logger.error(f"Webhook payload validation failed: {e}")
+        if payload_json:
+            logger.error(f"Offending payload: {json.dumps(payload_json, indent=2)}")
+        raise HTTPException(status_code=422, detail=e.errors())
+    except Exception as e:
+        logger.error(
+            f"An unexpected error occurred during webhook processing: {e}", exc_info=True
+        )
+        raise HTTPException(status_code=500, detail="Internal server error")
 
     for event in payload:
         background_tasks.add_task(process_webhook_event, event, client, sheets_service)
