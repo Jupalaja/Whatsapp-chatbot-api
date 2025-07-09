@@ -9,6 +9,7 @@ import httpx
 from src.config import settings
 from src.api.chat_router.router import _chat_router_logic
 from src.database.db import AsyncSessionFactory
+from src.database import models
 from src.shared.enums import InteractionType
 from src.shared.schemas import InteractionMessage, InteractionRequest
 from src.services.google_sheets import GoogleSheetsService
@@ -88,10 +89,28 @@ async def process_webhook_event(
     ):
         logger.info(f"Processing webhook for session_id: {session_id}")
 
-        user_data = {}
         phone_number = None
         if event.data.key.remoteJid:
             phone_number = event.data.key.remoteJid.split("@")[0]
+
+        if message_text.strip().upper() == "RESET":
+            logger.info(f"Received RESET command for session_id: {session_id}")
+            async with AsyncSessionFactory() as db:
+                interaction_to_delete = await db.get(models.Interaction, session_id)
+                if interaction_to_delete:
+                    await db.delete(interaction_to_delete)
+                    await db.commit()
+                    logger.info(f"Deleted interaction for session_id: {session_id}")
+                else:
+                    logger.info(
+                        f"No interaction found for session_id: {session_id}, nothing to delete."
+                    )
+            if phone_number:
+                await send_whatsapp_message(phone_number, "El chat ha sido reiniciado")
+            return
+
+        user_data = {}
+        if phone_number:
             user_data["phoneNumber"] = phone_number
         if event.data.pushName:
             user_data["tagName"] = event.data.pushName
