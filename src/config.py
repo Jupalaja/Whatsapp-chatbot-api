@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     GOOGLE_CLOUD_LOCATION: Optional[str] = None
     GOOGLE_API_KEY: Optional[str] = None
 
+    # WhatsApp API
+    WEBHOOK_PATH: str
+    WHATSAPP_SERVER_URL: Optional[str] = None
+    WHATSAPP_SERVER_API_KEY: Optional[str] = None
+    WHATSAPP_SERVER_INSTANCE_NAME: Optional[str] = None
+
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def strip_quotes_from_db_url(cls, v: Any) -> Any:

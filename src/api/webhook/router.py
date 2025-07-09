@@ -5,18 +5,16 @@ from fastapi import APIRouter, Request, BackgroundTasks, HTTPException
 from pydantic import ValidationError
 import google.genai as genai
 
+from src.config import settings
 from src.api.chat_router.router import _chat_router_logic
 from src.database.db import AsyncSessionFactory
 from src.shared.enums import InteractionType
 from src.shared.schemas import InteractionMessage, InteractionRequest
 from src.services.google_sheets import GoogleSheetsService
-from .schemas import WebhookPayload, WebhookEvent
+from .schemas import WebhookEvent
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-
-# This is the "safe UUID path" from the example payload destination.
-WEBHOOK_PATH = "8dc6d878-da30-4102-b6b0-4faed52ba983"
 
 
 async def process_webhook_event(
@@ -78,7 +76,7 @@ async def process_webhook_event(
         )
 
 
-@router.post(f"/webhook/{WEBHOOK_PATH}", status_code=200)
+@router.post(f"/webhook/{settings.WEBHOOK_PATH}", status_code=200)
 async def handle_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -86,7 +84,7 @@ async def handle_webhook(
     """
     Handles incoming webhooks from the Evolution API.
     """
-    logger.info(f"Received webhook on path: /webhook/{WEBHOOK_PATH}")
+    logger.info(f"Received webhook on path: /webhook/{settings.WEBHOOK_PATH}")
     client: genai.Client = request.app.state.genai_client
     sheets_service: GoogleSheetsService = request.app.state.sheets_service
 
