@@ -37,7 +37,6 @@ def obtener_informacion_cliente_potencial(
     y promedio_viajes_mensuales. No esperes una confirmación del cliente para llamar esta
     función, con tener la información suficiente basta.
     """
-    TipoDeServicio(tipo_de_servicio)
     return locals()
 
 
