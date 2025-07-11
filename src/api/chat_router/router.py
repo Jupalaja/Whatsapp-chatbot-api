@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 import google.genai as genai
 from google.genai import errors
+from sqlalchemy.orm.attributes import flag_modified
 
 from src.database.db import get_db
 from src.shared.enums import CategoriaClasificacion, InteractionType
@@ -147,6 +148,7 @@ async def _chat_router_logic(
                 if interaction.interaction_data is None:
                     interaction.interaction_data = {}
                 interaction.interaction_data["classifiedAs"] = classified_as.value
+                flag_modified(interaction, "interaction_data")
 
                 await db.commit()
 
@@ -184,6 +186,7 @@ async def _chat_router_logic(
                     if interaction.interaction_data is None:
                         interaction.interaction_data = {}
                     interaction.interaction_data["special_list_sent"] = True
+                    flag_modified(interaction, "interaction_data")
                     interaction.messages = [
                         msg.model_dump(mode="json") for msg in history_messages
                     ]
@@ -222,6 +225,7 @@ async def _chat_router_logic(
             if interaction.interaction_data is None:
                 interaction.interaction_data = {}
             interaction.interaction_data["classifiedAs"] = classified_as.value
+            flag_modified(interaction, "interaction_data")
             await db.commit()
 
             return await _route_to_specific_handler(
@@ -265,6 +269,7 @@ async def _chat_router_logic(
             if interaction.interaction_data is None:
                 interaction.interaction_data = {}
             interaction.interaction_data["classifiedAs"] = classified_as.value
+            flag_modified(interaction, "interaction_data")
 
         await db.commit()
 
@@ -465,6 +470,7 @@ async def _route_to_specific_handler(
             interaction.messages = [msg.model_dump(mode="json") for msg in history_messages]
             interaction.state = next_state.value if hasattr(next_state, 'value') else next_state
             interaction.interaction_data = new_interaction_data
+            flag_modified(interaction, "interaction_data")
         else:
             interaction = models.Interaction(
                 session_id=interaction_request.sessionId,
