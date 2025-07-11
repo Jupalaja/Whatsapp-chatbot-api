@@ -19,6 +19,7 @@ from src.shared.utils.validations import (
     es_solicitud_de_mudanza,
     es_solicitud_de_paqueteo,
 )
+from src.shared.utils.functions import get_response_text
 
 
 logger = logging.getLogger(__name__)
@@ -153,10 +154,12 @@ async def workflow_tipo_de_interaccion(
                     )
                     return [assistant_message], clasificacion, tool_call_name
 
-    if not assistant_message and response_chat.text:
-        assistant_message = InteractionMessage(
-            role=InteractionType.MODEL, message=response_chat.text
-        )
+    if not assistant_message:
+        assistant_message_text = get_response_text(response_chat)
+        if assistant_message_text:
+            assistant_message = InteractionMessage(
+                role=InteractionType.MODEL, message=assistant_message_text
+            )
 
     if not assistant_message:
         # This fallback is for cases where the model fails to generate any response or tool call.

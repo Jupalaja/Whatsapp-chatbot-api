@@ -244,7 +244,6 @@ async def handle_webhook(
     payload_json = None
     try:
         payload_json = await request.json()
-        logger.info(f"Webhook payload JSON: {json.dumps(payload_json, indent=2)}")
 
         # Handle both single object and list of objects
         events_to_process = (

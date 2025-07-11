@@ -18,6 +18,7 @@ from src.shared.schemas import InteractionMessage
 from src.shared.tools import obtener_ayuda_humana
 from src.shared.utils.history import get_genai_history
 from src.services.google_sheets import GoogleSheetsService
+from src.shared.utils.functions import get_response_text
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +112,8 @@ async def handle_in_progress_proveedor_potencial(
 
     if not assistant_message:
         assistant_message_text = (
-            response.text or "Por favor, especifica qué tipo de servicio o producto ofreces."
+            get_response_text(response)
+            or "Por favor, especifica qué tipo de servicio o producto ofreces."
         )
         assistant_message = InteractionMessage(
             role=InteractionType.MODEL, message=assistant_message_text

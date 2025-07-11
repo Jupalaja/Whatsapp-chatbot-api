@@ -19,6 +19,22 @@ from src.shared.utils.history import get_genai_history
 logger = logging.getLogger(__name__)
 
 
+def get_response_text(response: types.GenerateContentResponse) -> str:
+    """
+    Safely extracts text from a Gemini response, avoiding warnings for non-text parts.
+    """
+    texts = []
+    if not response.candidates:
+        return ""
+
+    for candidate in response.candidates:
+        if candidate.content and candidate.content.parts:
+            for part in candidate.content.parts:
+                if part.text:
+                    texts.append(part.text)
+    return "".join(texts)
+
+
 async def summarize_user_request(user_message: str, client: genai.Client) -> str:
     """Summarizes the user's request using the Gemini model."""
     if not user_message:
@@ -32,7 +48,7 @@ async def summarize_user_request(user_message: str, client: genai.Client) -> str
             contents=prompt,
             config=types.GenerateContentConfig(temperature=0.0),
         )
-        return response.text
+        return get_response_text(response)
     except Exception as e:
         logger.error(f"Failed to summarize user request: {e}", exc_info=True)
         return user_message  # Fallback to original message on error
@@ -88,7 +104,7 @@ async def handle_conversation_finished(
         assistant_message_text = obtener_ayuda_humana()
         next_state = GlobalState.HUMAN_ESCALATION
     else:
-        assistant_message_text = response.text
+        assistant_message_text = get_response_text(response)
 
     if not assistant_message_text:
         assistant_message_text = AYUDA_HUMANA_PROMPT

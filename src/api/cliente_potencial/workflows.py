@@ -44,6 +44,7 @@ from src.shared.prompts import (
     PROMPT_SERVICIO_NO_PRESTADO_MUDANZA,
     PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO,
 )
+from src.shared.utils.functions import get_response_text
 
 
 logger = logging.getLogger(__name__)
@@ -172,7 +173,7 @@ async def _execute_tool_calls_and_get_response(
                 tool_call_names.append(tool_name)
 
     # Get text response if available
-    text_response = response.text if hasattr(response, 'text') else None
+    text_response = get_response_text(response)
     
     return text_response, tool_results, tool_call_names
 
@@ -191,7 +192,7 @@ async def _get_final_text_response(
     response = await client.aio.models.generate_content(
         model=GEMINI_MODEL, contents=genai_history, config=config
     )
-    return response.text
+    return get_response_text(response)
 
 
 async def _workflow_remaining_information_provided(

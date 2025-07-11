@@ -19,6 +19,7 @@ from src.shared.schemas import InteractionMessage
 from src.shared.tools import obtener_ayuda_humana
 from src.shared.utils.history import get_genai_history
 from src.services.google_sheets import GoogleSheetsService
+from src.shared.utils.functions import get_response_text
 
 logger = logging.getLogger(__name__)
 
@@ -124,9 +125,10 @@ async def handle_in_progress_usuario_administrativo(
             next_state = UsuarioAdministrativoState.HUMAN_ESCALATION
 
     if not assistant_message:
-        if response.text:
+        assistant_message_text = get_response_text(response)
+        if assistant_message_text:
             assistant_message = InteractionMessage(
-                role=InteractionType.MODEL, message=response.text
+                role=InteractionType.MODEL, message=assistant_message_text
             )
             next_state = UsuarioAdministrativoState.AWAITING_NECESITY_TYPE
         else:

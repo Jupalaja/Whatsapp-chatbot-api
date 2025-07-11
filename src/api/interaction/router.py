@@ -12,6 +12,7 @@ from src.shared.prompts import CONTACTO_BASE_SYSTEM_PROMPT
 from src.shared.tools import obtener_ayuda_humana
 from src.shared.schemas import InteractionRequest, InteractionResponse, InteractionMessage
 from src.shared.utils.history import get_genai_history
+from src.shared.utils.functions import get_response_text
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -75,11 +76,13 @@ async def handle_interaction(
                     role=InteractionType.MODEL, message=assistant_text
                 )
 
-        if response.text and not assistant_message:
-            assistant_message = InteractionMessage(
-                role=InteractionType.MODEL,
-                message=response.text,
-            )
+        if not assistant_message:
+            assistant_text = get_response_text(response)
+            if assistant_text:
+                assistant_message = InteractionMessage(
+                    role=InteractionType.MODEL,
+                    message=assistant_text,
+                )
 
         if assistant_message:
             history_messages.append(assistant_message)
