@@ -97,7 +97,6 @@ async def _chat_router_logic(
             history_messages=history_messages,
             client=client,
         )
-        logger.info(f"Classification result for session {session_id}: {clasificacion}")
 
         validation_tools = [
             "es_mercancia_valida",

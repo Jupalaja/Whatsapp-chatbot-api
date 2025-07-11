@@ -124,7 +124,7 @@ async def send_whatsapp_list_message(phone_number: str):
             res = await client.post(url, headers=headers, json=payload)
             res.raise_for_status()
             logger.info(
-                f"Successfully sent WhatsApp list message to {phone_number}. Response: {res.text}"
+                f"Successfully sent WhatsApp list message to {phone_number}."
             )
         except httpx.HTTPStatusError as e:
             logger.error(

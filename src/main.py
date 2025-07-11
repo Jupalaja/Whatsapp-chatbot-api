@@ -19,7 +19,18 @@ from src.database.db import engine, test_db_connection
 from src.services.google_sheets import GoogleSheetsService
 from src.shared.schemas import HealthResponse
 
-logging.basicConfig(level=settings.LOG_LEVEL.upper())
+log_level = settings.LOG_LEVEL.upper()
+logging.basicConfig(
+    level=log_level,
+    format="%(levelname)s:%(name)s: [%(funcName)s] - %(message)s",
+)
+
+# httpx logs at INFO level for requests, which is noisy for production.
+# We set it to WARNING to silence it, unless we are in DEBUG mode.
+if log_level != "DEBUG":
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 
 

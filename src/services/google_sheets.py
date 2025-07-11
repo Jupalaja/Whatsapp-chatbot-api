@@ -51,7 +51,7 @@ class GoogleSheetsService:
             creds = Credentials.from_service_account_info(
                 service_account_info, scopes=scopes
             )
-            logger.info("Successfully authenticated with Google Sheets.")
+            logger.debug("Successfully authenticated with Google Sheets.")
             return creds
         except Exception as e:
             logger.error(f"Failed to authenticate with Google Sheets: {e}", exc_info=True)
