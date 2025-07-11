@@ -1,22 +1,6 @@
 from src.shared.enums import TipoDeServicio
 
 
-def inferir_tipo_de_servicio(tipo_de_servicio: str) -> str:
-    """
-    Valída y estandariza el tipo de servicio logístico inferido por el modelo.
-    El modelo debe analizar la descripción del servicio del usuario y llamar a esta función con el valor correspondiente del enumerado `TipoDeServicio`.
-    Este valor estandarizado se utiliza luego para registrar la información del cliente potencial.
-    Por ejemplo, si un usuario dice 'necesito transportar maquinaria', el modelo debe invocar esta función con `tipo_de_servicio='DISTRIBUCION'`.
-
-    Args:
-        tipo_de_servicio: El tipo de servicio inferido por el modelo. Debe ser uno de los valores del enumerado `TipoDeServicio`.
-
-    Returns:
-        El valor del enumerado `TipoDeServicio` como una cadena de texto.
-    """
-    return TipoDeServicio(tipo_de_servicio).value
-
-
 def buscar_nit(nit: str):
     """Captura el NIT de la empresa proporcionado por el usuario."""
     return nit

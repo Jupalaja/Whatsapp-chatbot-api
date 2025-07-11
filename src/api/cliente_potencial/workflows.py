@@ -20,7 +20,6 @@ from .state import ClientePotencialState
 from .tools import (
     cliente_solicito_correo,
     obtener_informacion_cliente_potencial,
-    inferir_tipo_de_servicio,
     es_persona_natural,
     necesita_agente_de_carga,
     guardar_correo_cliente,
@@ -525,7 +524,6 @@ async def _workflow_awaiting_remaining_information(
         es_solicitud_de_mudanza,
         es_solicitud_de_paqueteo,
         obtener_ayuda_humana,
-        inferir_tipo_de_servicio,
         cliente_solicito_correo,
     ]
 
@@ -628,7 +626,7 @@ async def _workflow_awaiting_remaining_information(
     assistant_message_text = text_response
     if not assistant_message_text:
         logger.warning(
-            "Model did not return text or function call. Escalating to human."
+            "Model did not return text and no terminal tool was called. Escalating to human."
         )
         return (
             [
