@@ -39,13 +39,13 @@ async def _chat_router_logic(
     db: AsyncSession,
 ) -> InteractionResponse:
     session_id = interaction_request.sessionId
-    logger.info(f"Chat router logic triggered for session_id: {session_id}")
+    logger.debug(f"Chat router logic triggered for session_id: {session_id}")
 
     interaction = await db.get(models.Interaction, session_id)
 
     # Check if the interaction is soft deleted
     if interaction and interaction.is_deleted:
-        logger.info(f"Session {session_id} is marked as deleted, treating as new conversation")
+        logger.debug(f"Session {session_id} is marked as deleted, treating as new conversation")
         interaction.is_deleted = False
         interaction.messages = []
         interaction.state = None
@@ -73,7 +73,7 @@ async def _chat_router_logic(
     )
 
     if classified_as:
-        logger.info(
+        logger.debug(
             f"Session {session_id} already classified as '{classified_as.value}'. Routing to specific handler."
         )
         return await _route_to_specific_handler(
@@ -86,7 +86,7 @@ async def _chat_router_logic(
         )
 
     try:
-        logger.info(
+        logger.debug(
             f"Session {session_id} not classified. Calling 'handle_tipo_de_interaccion'."
         )
         (
@@ -114,7 +114,7 @@ async def _chat_router_logic(
             ]
             if len(high_confidence_categories) == 1:
                 classified_as = CategoriaClasificacion(high_confidence_categories[0])
-                logger.info(
+                logger.debug(
                     f"Session {session_id} classified as '{classified_as.value}' with high confidence."
                 )
             elif len(high_confidence_categories) > 1:
@@ -159,7 +159,7 @@ async def _chat_router_logic(
                     classifiedAs=classified_as,
                 )
             else:
-                logger.info(
+                logger.debug(
                     f"Session {session_id} could not be classified with high confidence."
                 )
 
@@ -170,7 +170,7 @@ async def _chat_router_logic(
                 and interaction.interaction_data.get("special_list_sent")
             )
             if not special_list_sent:
-                logger.info(
+                logger.debug(
                     f"Session {session_id} is a first-time unclassified interaction. Sending special list message."
                 )
                 if not interaction:
@@ -208,7 +208,7 @@ async def _chat_router_logic(
             and classified_as != CategoriaClasificacion.OTRO
             and tool_call_name not in validation_tools
         ):
-            logger.info(
+            logger.debug(
                 f"Routing session {session_id} to handler for '{classified_as.value}'."
             )
             if not interaction:
@@ -302,7 +302,7 @@ async def chat_router(
     First classifies the interaction type, then routes to the appropriate handler.
     """
     session_id = interaction_request.sessionId
-    logger.info(f"Chat router triggered for session_id: {session_id}")
+    logger.debug(f"Chat router triggered for session_id: {session_id}")
     client: genai.Client = request.app.state.genai_client
     sheets_service: GoogleSheetsService = request.app.state.sheets_service
     return await _chat_router_logic(interaction_request, client, sheets_service, db)
@@ -329,7 +329,7 @@ async def _route_to_specific_handler(
 
     try:
         if classified_as == CategoriaClasificacion.CLIENTE_POTENCIAL:
-            logger.info(f"Routing to 'cliente_potencial' handler for session_id: {interaction_request.sessionId}")
+            logger.debug(f"Routing to 'cliente_potencial' handler for session_id: {interaction_request.sessionId}")
             current_state = ClientePotencialState.AWAITING_NIT
             if interaction and interaction.state:
                 current_state = ClientePotencialState(interaction.state)
@@ -349,7 +349,7 @@ async def _route_to_specific_handler(
             )
 
         elif classified_as == CategoriaClasificacion.CLIENTE_ACTIVO:
-            logger.info(f"Routing to 'cliente_activo' handler for session_id: {interaction_request.sessionId}")
+            logger.debug(f"Routing to 'cliente_activo' handler for session_id: {interaction_request.sessionId}")
             current_state = ClienteActivoState.AWAITING_RESOLUTION
             if interaction and interaction.state:
                 current_state = ClienteActivoState(interaction.state)
@@ -369,7 +369,7 @@ async def _route_to_specific_handler(
             )
 
         elif classified_as == CategoriaClasificacion.PROVEEDOR_POTENCIAL:
-            logger.info(f"Routing to 'proveedor_potencial' handler for session_id: {interaction_request.sessionId}")
+            logger.debug(f"Routing to 'proveedor_potencial' handler for session_id: {interaction_request.sessionId}")
             current_state = ProveedorPotencialState.AWAITING_SERVICE_TYPE
             if interaction and interaction.state:
                 current_state = ProveedorPotencialState(interaction.state)
@@ -389,7 +389,7 @@ async def _route_to_specific_handler(
             )
 
         elif classified_as == CategoriaClasificacion.USUARIO_ADMINISTRATIVO:
-            logger.info(f"Routing to 'usuario_administrativo' handler for session_id: {interaction_request.sessionId}")
+            logger.debug(f"Routing to 'usuario_administrativo' handler for session_id: {interaction_request.sessionId}")
             current_state = UsuarioAdministrativoState.AWAITING_NECESITY_TYPE
             if interaction and interaction.state:
                 current_state = UsuarioAdministrativoState(interaction.state)
@@ -409,7 +409,7 @@ async def _route_to_specific_handler(
             )
 
         elif classified_as == CategoriaClasificacion.CANDIDATO_A_EMPLEO:
-            logger.info(f"Routing to 'candidato_a_empleo' handler for session_id: {interaction_request.sessionId}")
+            logger.debug(f"Routing to 'candidato_a_empleo' handler for session_id: {interaction_request.sessionId}")
             current_state = CandidatoAEmpleoState.AWAITING_VACANCY
             if interaction and interaction.state:
                 current_state = CandidatoAEmpleoState(interaction.state)
@@ -429,7 +429,7 @@ async def _route_to_specific_handler(
             )
 
         elif classified_as == CategoriaClasificacion.TRANSPORTISTA_TERCERO:
-            logger.info(f"Routing to 'transportista' handler for session_id: {interaction_request.sessionId}")
+            logger.debug(f"Routing to 'transportista' handler for session_id: {interaction_request.sessionId}")
             current_state = TransportistaState.AWAITING_REQUEST_TYPE
             if interaction and interaction.state:
                 current_state = TransportistaState(interaction.state)
@@ -450,7 +450,7 @@ async def _route_to_specific_handler(
 
         else:  # OTRO or any other case
             
-            logger.info(f"Routing to 'human_escalation' for session_id: {interaction_request.sessionId}")
+            logger.debug(f"Routing to 'human_escalation' for session_id: {interaction_request.sessionId}")
             new_assistant_messages = [
                 InteractionMessage(
                     role=InteractionType.MODEL,

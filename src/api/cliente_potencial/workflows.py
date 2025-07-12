@@ -19,7 +19,9 @@ from .prompts import (
 from .state import ClientePotencialState
 from .tools import (
     cliente_solicito_correo,
-    obtener_informacion_cliente_potencial,
+    obtener_informacion_esencial_cliente_potencial,
+    informacion_esencial_obtenida,
+    obtener_informacion_adicional_cliente_potencial,
     es_persona_natural,
     necesita_agente_de_carga,
     guardar_correo_cliente,
@@ -45,16 +47,15 @@ from src.shared.prompts import (
 )
 from src.shared.utils.functions import get_response_text
 
-
 logger = logging.getLogger(__name__)
 
 
 async def _write_cliente_potencial_to_sheet(
-    interaction_data: dict, sheets_service: Optional[GoogleSheetsService]
+        interaction_data: dict, sheets_service: Optional[GoogleSheetsService]
 ):
     if (
-        not settings.GOOGLE_SHEET_ID_EXPORT
-        or not sheets_service
+            not settings.GOOGLE_SHEET_ID_EXPORT
+            or not sheets_service
     ):
         logger.warning(
             "Spreadsheet ID for export not configured or sheets service not available. Skipping write."
@@ -136,10 +137,10 @@ async def _write_cliente_potencial_to_sheet(
 
 
 async def _execute_tool_calls_and_get_response(
-    history_messages: list[InteractionMessage],
-    client: genai.Client,
-    tools: list,
-    system_prompt: str,
+        history_messages: list[InteractionMessage],
+        client: genai.Client,
+        tools: list,
+        system_prompt: str,
 ) -> Tuple[Optional[str], dict, list[str]]:
     """
     Executes a conversation with tool calling and returns the final text response,
@@ -153,34 +154,92 @@ async def _execute_tool_calls_and_get_response(
         automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
     )
 
+    logger.info("--- Calling Gemini for tool execution/response ---")
+    logger.info(f"System prompt snippet: {system_prompt[:200]}...")
+
     response = await client.aio.models.generate_content(
         model=GEMINI_MODEL, contents=genai_history, config=config
     )
 
+    # Enhanced logging for response debugging
+    logger.info(f"Response has {len(response.candidates) if response.candidates else 0} candidates")
+
+    if response.candidates:
+        for candidate_idx, candidate in enumerate(response.candidates):
+            logger.info(f"Candidate {candidate_idx}: finish_reason={candidate.finish_reason}")
+
+            if candidate.content and candidate.content.parts:
+                logger.info(f"Candidate {candidate_idx} has {len(candidate.content.parts)} parts")
+
+                # Log detailed information about each part
+                for part_idx, part in enumerate(candidate.content.parts):
+                    part_info = {}
+
+                    # Check all possible part types
+                    if hasattr(part, 'text') and part.text:
+                        part_info['text'] = part.text[:100] + "..." if len(part.text) > 100 else part.text
+
+                    if hasattr(part, 'function_call') and part.function_call:
+                        part_info['function_call'] = {
+                            'name': part.function_call.name,
+                            'args': dict(part.function_call.args) if part.function_call.args else {}
+                        }
+
+                    if hasattr(part, 'function_response') and part.function_response:
+                        part_info['function_response'] = str(part.function_response)
+
+                    # Log any other attributes that might be present
+                    part_dict = part.model_dump(exclude_none=True) if hasattr(part, 'model_dump') else {}
+                    for key, value in part_dict.items():
+                        if key not in ['text', 'function_call', 'function_response']:
+                            part_info[key] = str(value)[:100] + "..." if len(str(value)) > 100 else str(value)
+
+                    logger.info(f"Part {part_idx}: {part_info}")
+            else:
+                logger.info(f"Candidate {candidate_idx} has no content or parts")
+
+    # Log function calls from response
+    if response.function_calls:
+        logger.info(f"Response has {len(response.function_calls)} function calls")
+        for fc_idx, fc in enumerate(response.function_calls):
+            logger.info(f"Function call {fc_idx}: {fc.name} with args: {dict(fc.args) if fc.args else {} }")
+    else:
+        logger.info("Response has no function calls")
+
     tool_results = {}
     tool_call_names = []
-    
+
     if response.function_calls:
         for function_call in response.function_calls:
             tool_name = function_call.name
             tool_args = dict(function_call.args) if function_call.args else {}
             tool_function = next((t for t in tools if t.__name__ == tool_name), None)
-            
+
             if tool_function:
+                logger.info(f"Executing tool: {tool_name} with args: {tool_args}")
                 result = tool_function(**tool_args)
                 tool_results[tool_name] = result
                 tool_call_names.append(tool_name)
+                logger.info(f"Tool {tool_name} returned: {result}")
+            else:
+                logger.warning(f"Tool {tool_name} not found in available tools")
 
     # Get text response if available
     text_response = get_response_text(response)
-    
+
+    logger.info(f"Final text response: '{text_response[:100]}...'" if len(
+        text_response) > 100 else f"Final text response: '{text_response}'")
+    logger.info(f"Tool results: {tool_results}")
+    logger.info(f"Tool call names: {tool_call_names}")
+    logger.info("--- End of Gemini call ---")
+
     return text_response, tool_results, tool_call_names
 
 
 async def _get_final_text_response(
-    history_messages: list[InteractionMessage],
-    client: genai.Client,
-    system_prompt: str,
+        history_messages: list[InteractionMessage],
+        client: genai.Client,
+        system_prompt: str,
 ) -> str:
     """Gets a final text response from the model without tools."""
     genai_history = await get_genai_history(history_messages)
@@ -195,8 +254,8 @@ async def _get_final_text_response(
 
 
 async def _workflow_remaining_information_provided(
-    interaction_data: dict,
-    sheets_service: Optional[GoogleSheetsService],
+        interaction_data: dict,
+        sheets_service: Optional[GoogleSheetsService],
 ) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str], dict]:
     """
     Handles the logic after all client information has been provided and stored.
@@ -256,10 +315,10 @@ async def _workflow_remaining_information_provided(
 
 
 async def _workflow_awaiting_nit(
-    history_messages: list[InteractionMessage],
-    interaction_data: dict,
-    client: genai.Client,
-    sheets_service: Optional[GoogleSheetsService],
+        history_messages: list[InteractionMessage],
+        interaction_data: dict,
+        client: genai.Client,
+        sheets_service: Optional[GoogleSheetsService],
 ) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str], dict]:
     """Handles the workflow when the assistant is waiting for the user's NIT."""
 
@@ -276,7 +335,7 @@ async def _workflow_awaiting_nit(
                 found_record = None
                 for record in records:
                     if str(record.get("NIT - 10 DIGITOS")) == nit or str(
-                        record.get("NIT - 9 DIGITOS")
+                            record.get("NIT - 9 DIGITOS")
                     ) == nit:
                         found_record = record
                         break
@@ -331,7 +390,7 @@ async def _workflow_awaiting_nit(
         es_solicitud_de_mudanza,
         es_solicitud_de_paqueteo,
     ]
-    
+
     text_response, tool_results, tool_call_names = await _execute_tool_calls_and_get_response(
         history_messages, client, tools, CLIENTE_POTENCIAL_SYSTEM_PROMPT
     )
@@ -386,7 +445,7 @@ async def _workflow_awaiting_nit(
         return (
             [
                 InteractionMessage(
-                    role=InteractionType.MODEL, 
+                    role=InteractionType.MODEL,
                     message=obtener_ayuda_humana(),
                     tool_calls=["obtener_ayuda_humana"]
                 )
@@ -404,8 +463,8 @@ async def _workflow_awaiting_nit(
         nit = None
         genai_history = await get_genai_history(history_messages)
         response = await client.aio.models.generate_content(
-            model=GEMINI_MODEL, 
-            contents=genai_history, 
+            model=GEMINI_MODEL,
+            contents=genai_history,
             config=types.GenerateContentConfig(
                 tools=tools,
                 system_instruction=CLIENTE_POTENCIAL_SYSTEM_PROMPT,
@@ -413,7 +472,7 @@ async def _workflow_awaiting_nit(
                 automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
             )
         )
-        
+
         if response.function_calls:
             for fc in response.function_calls:
                 if fc.name == "buscar_nit":
@@ -430,7 +489,7 @@ async def _workflow_awaiting_nit(
         return (
             [
                 InteractionMessage(
-                    role=InteractionType.MODEL, 
+                    role=InteractionType.MODEL,
                     message=assistant_message_text,
                     tool_calls=["buscar_nit"]
                 )
@@ -447,7 +506,7 @@ async def _workflow_awaiting_nit(
         return (
             [
                 InteractionMessage(
-                    role=InteractionType.MODEL, 
+                    role=InteractionType.MODEL,
                     message=assistant_message_text,
                     tool_calls=["es_persona_natural"]
                 )
@@ -459,12 +518,12 @@ async def _workflow_awaiting_nit(
 
     # No tool call or unrecognized response
     assistant_message_text = (
-        text_response or "Could you please provide your NIT or indicate if you are an individual?"
+            text_response or "Could you please provide your NIT or indicate if you are an individual?"
     )
     return (
         [
             InteractionMessage(
-                role=InteractionType.MODEL, 
+                role=InteractionType.MODEL,
                 message=assistant_message_text
             )
         ],
@@ -475,13 +534,13 @@ async def _workflow_awaiting_nit(
 
 
 async def _workflow_awaiting_persona_natural_freight_info(
-    history_messages: list[InteractionMessage],
-    interaction_data: dict,
-    client: genai.Client,
+        history_messages: list[InteractionMessage],
+        interaction_data: dict,
+        client: genai.Client,
 ) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str], dict]:
     """Handles the workflow when waiting for freight info from a natural person."""
     tools = [necesita_agente_de_carga, obtener_ayuda_humana]
-    
+
     text_response, tool_results, tool_call_names = await _execute_tool_calls_and_get_response(
         history_messages, client, tools, CLIENTE_POTENCIAL_SYSTEM_PROMPT
     )
@@ -500,7 +559,7 @@ async def _workflow_awaiting_persona_natural_freight_info(
 
     return (
         [InteractionMessage(
-            role=InteractionType.MODEL, 
+            role=InteractionType.MODEL,
             message=assistant_message_text,
             tool_calls=[tool_call_name] if tool_call_name else None
         )],
@@ -511,14 +570,16 @@ async def _workflow_awaiting_persona_natural_freight_info(
 
 
 async def _workflow_awaiting_remaining_information(
-    history_messages: list[InteractionMessage],
-    interaction_data: dict,
-    client: genai.Client,
-    sheets_service: Optional[GoogleSheetsService],
+        history_messages: list[InteractionMessage],
+        interaction_data: dict,
+        client: genai.Client,
+        sheets_service: Optional[GoogleSheetsService],
 ) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str], dict]:
     """Handles the workflow for gathering detailed information from a potential client."""
     tools = [
-        obtener_informacion_cliente_potencial,
+        obtener_informacion_esencial_cliente_potencial,
+        informacion_esencial_obtenida,
+        obtener_informacion_adicional_cliente_potencial,
         es_mercancia_valida,
         es_ciudad_valida,
         es_solicitud_de_mudanza,
@@ -531,13 +592,15 @@ async def _workflow_awaiting_remaining_information(
         history_messages, client, tools, CLIENTE_POTENCIAL_GATHER_INFO_SYSTEM_PROMPT
     )
 
+    logger.info(f"Workflow received from Gemini - Text: '{text_response}', Tools: {tool_call_names}")
+
     if "obtener_ayuda_humana" in tool_results:
         return (
             [
                 InteractionMessage(
-                    role=InteractionType.MODEL, 
+                    role=InteractionType.MODEL,
                     message=obtener_ayuda_humana(),
-                    tool_calls=["obtener_ayuda_humana"]
+                    tool_calls=["obtener_ayuda_humana"],
                 )
             ],
             ClientePotencialState.HUMAN_ESCALATION,
@@ -552,7 +615,7 @@ async def _workflow_awaiting_remaining_information(
                 InteractionMessage(
                     role=InteractionType.MODEL,
                     message=PROMPT_SERVICIO_NO_PRESTADO_MUDANZA,
-                    tool_calls=["es_solicitud_de_mudanza"]
+                    tool_calls=["es_solicitud_de_mudanza"],
                 )
             ],
             ClientePotencialState.CONVERSATION_FINISHED,
@@ -567,7 +630,7 @@ async def _workflow_awaiting_remaining_information(
                 InteractionMessage(
                     role=InteractionType.MODEL,
                     message=PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO,
-                    tool_calls=["es_solicitud_de_paqueteo"]
+                    tool_calls=["es_solicitud_de_paqueteo"],
                 )
             ],
             ClientePotencialState.CONVERSATION_FINISHED,
@@ -588,11 +651,11 @@ async def _workflow_awaiting_remaining_information(
                 interaction_data["discarded"] = "no_es_ciudad_valida"
             interaction_data["messages_after_finished_count"] = 0
             return (
-                [InteractionMessage(
-                    role=InteractionType.MODEL, 
-                    message=result,
-                    tool_calls=[check]
-                )],
+                [
+                    InteractionMessage(
+                        role=InteractionType.MODEL, message=result, tool_calls=[check]
+                    )
+                ],
                 ClientePotencialState.CONVERSATION_FINISHED,
                 check,
                 interaction_data,
@@ -605,7 +668,7 @@ async def _workflow_awaiting_remaining_information(
                 InteractionMessage(
                     role=InteractionType.MODEL,
                     message=PROMPT_CUSTOMER_REQUESTED_EMAIL,
-                    tool_calls=["cliente_solicito_correo"]
+                    tool_calls=["cliente_solicito_correo"],
                 )
             ],
             ClientePotencialState.CUSTOMER_ASKED_FOR_EMAIL_DATA_SENT,
@@ -613,11 +676,29 @@ async def _workflow_awaiting_remaining_information(
             interaction_data,
         )
 
-    if "obtener_informacion_cliente_potencial" in tool_results:
-        collected_info = tool_results["obtener_informacion_cliente_potencial"]
+    # Information gathering logic
+    essential_info_provided = (
+            "obtener_informacion_esencial_cliente_potencial" in tool_results
+    )
+    additional_info_provided = (
+            "obtener_informacion_adicional_cliente_potencial" in tool_results
+    )
+
+    if essential_info_provided or additional_info_provided:
         if "remaining_information" not in interaction_data:
             interaction_data["remaining_information"] = {}
+
+    if essential_info_provided:
+        collected_info = tool_results["obtener_informacion_esencial_cliente_potencial"]
         interaction_data["remaining_information"].update(collected_info)
+
+    if additional_info_provided:
+        collected_info = tool_results[
+            "obtener_informacion_adicional_cliente_potencial"
+        ]
+        interaction_data["remaining_information"].update(collected_info)
+
+    if tool_results.get("informacion_esencial_obtenida"):
         return await _workflow_remaining_information_provided(
             interaction_data=interaction_data, sheets_service=sheets_service
         )
@@ -631,22 +712,22 @@ async def _workflow_awaiting_remaining_information(
         return (
             [
                 InteractionMessage(
-                    role=InteractionType.MODEL, 
+                    role=InteractionType.MODEL,
                     message=obtener_ayuda_humana(),
-                    tool_calls=["obtener_ayuda_humana"]
+                    tool_calls=["obtener_ayuda_humana"],
                 )
             ],
             ClientePotencialState.HUMAN_ESCALATION,
             "obtener_ayuda_humana",
             interaction_data,
         )
-    
+
     return (
         [
             InteractionMessage(
-                role=InteractionType.MODEL, 
+                role=InteractionType.MODEL,
                 message=assistant_message_text,
-                tool_calls=tool_call_names if tool_call_names else None
+                tool_calls=tool_call_names if tool_call_names else None,
             )
         ],
         ClientePotencialState.AWAITING_REMAINING_INFORMATION,
@@ -656,14 +737,14 @@ async def _workflow_awaiting_remaining_information(
 
 
 async def _workflow_customer_asked_for_email_data_sent(
-    history_messages: list[InteractionMessage],
-    interaction_data: dict,
-    client: genai.Client,
-    sheets_service: Optional[GoogleSheetsService],
+        history_messages: list[InteractionMessage],
+        interaction_data: dict,
+        client: genai.Client,
+        sheets_service: Optional[GoogleSheetsService],
 ) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str], dict]:
     """Handles the workflow after the user has requested to send info via email."""
     tools = [guardar_correo_cliente, obtener_ayuda_humana]
-    
+
     text_response, tool_results, tool_call_names = await _execute_tool_calls_and_get_response(
         history_messages, client, tools, PROMPT_GET_CUSTOMER_EMAIL_SYSTEM_PROMPT
     )
@@ -672,7 +753,7 @@ async def _workflow_customer_asked_for_email_data_sent(
         return (
             [
                 InteractionMessage(
-                    role=InteractionType.MODEL, 
+                    role=InteractionType.MODEL,
                     message=obtener_ayuda_humana(),
                     tool_calls=["obtener_ayuda_humana"]
                 )
@@ -701,12 +782,12 @@ async def _workflow_customer_asked_for_email_data_sent(
 
     # If the model called a different tool or failed, ask again.
     assistant_message_text = (
-        text_response or "Por favor, indícame tu correo electrónico para continuar."
+            text_response or "Por favor, indícame tu correo electrónico para continuar."
     )
     return (
         [
             InteractionMessage(
-                role=InteractionType.MODEL, 
+                role=InteractionType.MODEL,
                 message=assistant_message_text,
                 tool_calls=tool_call_names if tool_call_names else None
             )

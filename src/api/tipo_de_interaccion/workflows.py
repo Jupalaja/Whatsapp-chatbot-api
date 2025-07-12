@@ -51,7 +51,27 @@ async def workflow_tipo_de_interaccion(
     response_classification = await client.aio.models.generate_content(
         model=model, contents=genai_history, config=classification_config
     )
-    logger.debug(f"Classification response from model: {response_classification}")
+    if response_classification.candidates:
+        # Log the full content parts for debugging, in a serializable format
+        if (
+            response_classification.candidates[0].content
+            and response_classification.candidates[0].content.parts
+        ):
+            try:
+                parts_for_logging = [
+                    part.model_dump(exclude_none=True)
+                    for part in response_classification.candidates[0].content.parts
+                ]
+                logger.debug(f"Classification response parts: {parts_for_logging}")
+            except Exception as e:
+                logger.error(
+                    f"Could not serialize classification response parts for logging: {e}"
+                )
+                logger.debug(
+                    f"Classification response parts (raw): {response_classification.candidates[0].content.parts}"
+                )
+    else:
+        logger.debug("Classification response has no candidates.")
 
     clasificacion = None
     if response_classification.function_calls:

@@ -1,3 +1,4 @@
+from typing import Optional
 from src.shared.enums import TipoDeServicio
 
 
@@ -16,28 +17,44 @@ def necesita_agente_de_carga():
     return True
 
 
-def obtener_informacion_cliente_potencial(
-    nombre_legal: str,
-    nombre_persona_contacto: str,
-    correo: str,
-    telefono: str,
-    tipo_de_servicio: str,
-    tipo_mercancia: str,
-    detalles_mercancia: str,
-    peso_de_mercancia: str,
-    ciudad_origen: str,
-    ciudad_destino: str,
-    promedio_viajes_mensuales: int,
+def obtener_informacion_esencial_cliente_potencial(
+    nombre_persona_contacto: Optional[str] = None,
+    telefono: Optional[str] = None,
+    tipo_mercancia: Optional[str] = None,
+    ciudad_origen: Optional[str] = None,
+    ciudad_destino: Optional[str] = None,
 ):
     """
-    Se debe llamar a esta función cuando se haya recopilado la información
-    requerida del cliente. Esta función guarda los detalles del cliente potencial.
-    La información requerida es: nombre_legal, nombre_persona_contacto, correo, telefono,
-    tipo_de_servicio, tipo_mercancia, detalles_mercancia, peso_de_mercancia, ciudad_origen, ciudad_destino,
-    y promedio_viajes_mensuales. No esperes una confirmación del cliente para llamar esta
-    función, con tener la información suficiente basta.
+    Se debe llamar a esta función para guardar cualquier pieza de información esencial del cliente que se haya recopilado.
+    El modelo debe seguir pidiendo la información faltante hasta que tenga todos los datos esenciales: nombre_persona_contacto, telefono, tipo_mercancia, ciudad_origen, y ciudad_destino.
     """
-    return locals()
+    return {k: v for k, v in locals().items() if v is not None}
+
+
+def informacion_esencial_obtenida(obtenida: bool):
+    """
+    Llama a esta función con `obtenida=True` una vez que se haya recopilado TODA la información esencial del cliente potencial (nombre de contacto, teléfono, tipo de mercancía, ciudad de origen y ciudad de destino).
+    Esto indica que se puede proceder al siguiente paso.
+    """
+    return obtenida
+
+
+def obtener_informacion_adicional_cliente_potencial(
+    nombre_legal: Optional[str] = None,
+    correo: Optional[str] = None,
+    tipo_de_servicio: Optional[str] = None,
+    detalles_mercancia: Optional[str] = None,
+    peso_de_mercancia: Optional[str] = None,
+    promedio_viajes_mensuales: Optional[int] = None,
+):
+    """
+    Se debe llamar a esta función si el usuario proporciona voluntariamente cualquier información adicional.
+    Esta función guarda detalles opcionales del cliente potencial.
+    No se debe insistir al usuario para obtener esta información.
+    El modelo debe extraerla si está presente en la conversación.
+    """
+    # Return only provided values
+    return {k: v for k, v in locals().items() if v is not None}
 
 
 def cliente_solicito_correo():

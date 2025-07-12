@@ -27,7 +27,7 @@ async def handle(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    logger.info(
+    logger.debug(
         f"Handling 'cliente-potencial' request for session: {interaction_request.sessionId}"
     )
     client: genai.Client = request.app.state.genai_client

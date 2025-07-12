@@ -51,7 +51,7 @@ async def send_whatsapp_message(phone_number: str, message: str):
                 )
             except json.JSONDecodeError:
                 log_message = res.text
-            logger.info(
+            logger.debug(
                 f"Successfully sent WhatsApp message to {phone_number}. Response: {log_message}"
             )
         except httpx.HTTPStatusError as e:
@@ -123,7 +123,7 @@ async def send_whatsapp_list_message(phone_number: str):
         try:
             res = await client.post(url, headers=headers, json=payload)
             res.raise_for_status()
-            logger.info(
+            logger.debug(
                 f"Successfully sent WhatsApp list message to {phone_number}."
             )
         except httpx.HTTPStatusError as e:
@@ -173,14 +173,14 @@ async def process_webhook_event(
         and session_id
         and message_text
     ):
-        logger.info(f"Processing webhook for session_id: {session_id}")
+        logger.debug(f"Processing webhook for session_id: {session_id}")
 
         phone_number = None
         if event.data.key.remoteJid:
             phone_number = event.data.key.remoteJid.split("@")[0]
 
         if message_text.strip().upper() == "RESET":
-            logger.info(f"Received RESET command for session_id: {session_id}")
+            logger.debug(f"Received RESET command for session_id: {session_id}")
             async with AsyncSessionFactory() as db:
                 interaction = await db.get(models.Interaction, session_id)
                 if interaction:
@@ -192,9 +192,9 @@ async def process_webhook_event(
                     interaction.session_id = new_session_id
                     interaction.is_deleted = True
                     await db.commit()
-                    logger.info(f"Soft deleted interaction for session_id: {session_id}, new session_id: {new_session_id}")
+                    logger.debug(f"Soft deleted interaction for session_id: {session_id}, new session_id: {new_session_id}")
                 else:
-                    logger.info(
+                    logger.debug(
                         f"No interaction found for session_id: {session_id}, nothing to reset."
                     )
             if phone_number:
@@ -231,7 +231,7 @@ async def process_webhook_event(
                 exc_info=True,
             )
     else:
-        logger.info(
+        logger.debug(
             f"Skipping webhook event processing. Details: event_type='{event_type}', from_me={from_me}, has_session_id={bool(session_id)}, has_message_text={bool(message_text)}"
         )
 
@@ -244,7 +244,7 @@ async def handle_webhook(
     """
     Handles incoming webhooks from the Evolution API.
     """
-    logger.info(f"Received webhook on path: /webhook/{settings.WEBHOOK_PATH}")
+    logger.debug(f"Received webhook on path: /webhook/{settings.WEBHOOK_PATH}")
     client: genai.Client = request.app.state.genai_client
     sheets_service: GoogleSheetsService = request.app.state.sheets_service
 

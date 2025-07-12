@@ -22,17 +22,51 @@ logger = logging.getLogger(__name__)
 def get_response_text(response: types.GenerateContentResponse) -> str:
     """
     Safely extracts text from a Gemini response, avoiding warnings for non-text parts.
+    Also logs the full response parts for debugging purposes.
     """
     texts = []
     if not response.candidates:
+        logger.info("No candidates in response")
         return ""
 
-    for candidate in response.candidates:
+    for candidate_idx, candidate in enumerate(response.candidates):
+        logger.info(f"Candidate {candidate_idx}: finish_reason={candidate.finish_reason}")
+
         if candidate.content and candidate.content.parts:
-            for part in candidate.content.parts:
-                if part.text:
+            logger.info(f"Candidate {candidate_idx} has {len(candidate.content.parts)} parts")
+
+            # Log detailed information about each part
+            for part_idx, part in enumerate(candidate.content.parts):
+                part_info = {}
+
+                # Check all possible part types
+                if hasattr(part, 'text') and part.text:
+                    part_info['text'] = part.text[:100] + "..." if len(part.text) > 100 else part.text
                     texts.append(part.text)
-    return "".join(texts)
+
+                if hasattr(part, 'function_call') and part.function_call:
+                    part_info['function_call'] = {
+                        'name': part.function_call.name,
+                        'args': dict(part.function_call.args) if part.function_call.args else {}
+                    }
+
+                if hasattr(part, 'function_response') and part.function_response:
+                    part_info['function_response'] = str(part.function_response)
+
+                # Log any other attributes that might be present
+                part_dict = part.model_dump(exclude_none=True) if hasattr(part, 'model_dump') else {}
+                for key, value in part_dict.items():
+                    if key not in ['text', 'function_call', 'function_response']:
+                        part_info[key] = str(value)[:100] + "..." if len(str(value)) > 100 else str(value)
+
+                logger.info(f"Part {part_idx}: {part_info}")
+        else:
+            logger.info(f"Candidate {candidate_idx} has no content or parts")
+
+    result = "".join(texts)
+    logger.info(
+        f"Final extracted text: '{result[:100]}...'" if len(result) > 100 else f"Final extracted text: '{result}'")
+    return result
 
 
 async def summarize_user_request(user_message: str, client: genai.Client) -> str:
@@ -55,15 +89,15 @@ async def summarize_user_request(user_message: str, client: genai.Client) -> str
 
 
 async def handle_conversation_finished(
-    session_id: str,
-    history_messages: list[InteractionMessage],
-    interaction_data: dict,
-    client: genai.Client,
-    autopilot_system_prompt: str,
+        session_id: str,
+        history_messages: list[InteractionMessage],
+        interaction_data: dict,
+        client: genai.Client,
+        autopilot_system_prompt: str,
 ) -> Tuple[list[InteractionMessage], GlobalState, Optional[str], dict]:
     """Handles interactions after the main conversation flow has finished."""
     messages_after_finished_count = (
-        interaction_data.get("messages_after_finished_count", 0) + 1
+            interaction_data.get("messages_after_finished_count", 0) + 1
     )
     interaction_data["messages_after_finished_count"] = messages_after_finished_count
 
@@ -97,8 +131,8 @@ async def handle_conversation_finished(
     next_state = GlobalState.CONVERSATION_FINISHED
 
     if (
-        response.function_calls
-        and response.function_calls[0].name == "obtener_ayuda_humana"
+            response.function_calls
+            and response.function_calls[0].name == "obtener_ayuda_humana"
     ):
         tool_call_name = "obtener_ayuda_humana"
         assistant_message_text = obtener_ayuda_humana()
@@ -119,16 +153,16 @@ async def handle_conversation_finished(
 
 
 async def handle_in_progress_conversation(
-    history_messages: list[InteractionMessage],
-    current_state: any,
-    in_progress_state: any,
-    interaction_data: dict,
-    client: genai.Client,
-    sheets_service: Optional[GoogleSheetsService],
-    workflow_function: Callable[
-        [list[InteractionMessage], genai.Client, Optional[GoogleSheetsService], dict],
-        Awaitable[Tuple[list[InteractionMessage], any, Optional[str], dict]],
-    ],
+        history_messages: list[InteractionMessage],
+        current_state: any,
+        in_progress_state: any,
+        interaction_data: dict,
+        client: genai.Client,
+        sheets_service: Optional[GoogleSheetsService],
+        workflow_function: Callable[
+            [list[InteractionMessage], genai.Client, Optional[GoogleSheetsService], dict],
+            Awaitable[Tuple[list[InteractionMessage], any, Optional[str], dict]],
+        ],
 ) -> Tuple[list[InteractionMessage], any, Optional[str], dict]:
     """
     Handles the main, in-progress conversation states by dispatching to the

@@ -32,7 +32,7 @@ async def handle(
     continuing a conversation by loading history from the database,
     appending the new message, and saving the updated history.
     """
-    logger.info(
+    logger.debug(
         f"Handling 'proveedor-potencial' request for session: {interaction_request.sessionId}"
     )
     client: genai.Client = request.app.state.genai_client
