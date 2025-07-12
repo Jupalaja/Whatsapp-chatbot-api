@@ -148,7 +148,7 @@ async def workflow_tipo_de_interaccion(
                 human_help_keywords = ["ayuda", "humano", "persona", "agente", "hablar con alguien"]
                 if any(keyword in user_message for keyword in human_help_keywords):
                     tool_call_name = "obtener_ayuda_humana"
-                    logger.info("User explicitly requested human help.")
+                    logger.warning("User explicitly requested human help.")
                     assistant_message = InteractionMessage(
                         role=InteractionType.MODEL, message=obtener_ayuda_humana()
                     )

@@ -63,7 +63,7 @@ async def handle(
 
     # Reusing constant from cliente_activo as the behavior is similar.
     if user_message_count >= ADMON_MESSAGES_UNTIL_HUMAN:
-        logger.info(
+        logger.warning(
             f"User with sessionId {interaction_request.sessionId} has sent more than {ADMON_MESSAGES_UNTIL_HUMAN} messages. Activating human help tool."
         )
         assistant_message = InteractionMessage(

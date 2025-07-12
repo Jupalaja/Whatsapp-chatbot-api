@@ -68,7 +68,7 @@ async def handle_interaction(
             function_call = response.function_calls[0]
             if function_call.name == "obtener_ayuda_humana":
                 tool_call_name = function_call.name
-                logger.info(
+                logger.warning(
                     f"The user with sessionId: {interaction_request.sessionId} requires human help"
                 )
                 assistant_text = obtener_ayuda_humana()

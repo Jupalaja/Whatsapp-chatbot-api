@@ -120,7 +120,7 @@ async def _chat_router_logic(
             elif len(high_confidence_categories) > 1:
                 classified_as = CategoriaClasificacion.OTRO
 
-                logger.info(
+                logger.warning(
                     f"Ambiguous interaction for sessionId {session_id} due to multiple high confidence categories, escalating to human."
                 )
 

@@ -68,7 +68,7 @@ async def handle_conversation_finished(
     interaction_data["messages_after_finished_count"] = messages_after_finished_count
 
     if messages_after_finished_count >= MESSAGES_AFTER_CONVERSATION_FINISHED:
-        logger.info(
+        logger.warning(
             f"User with sessionId {session_id} has sent more than {MESSAGES_AFTER_CONVERSATION_FINISHED} messages. Activating human help tool."
         )
         assistant_message_text = obtener_ayuda_humana()
