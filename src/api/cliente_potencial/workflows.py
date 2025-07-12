@@ -137,14 +137,19 @@ async def _write_cliente_potencial_to_sheet(
 
 
 async def _execute_tool_calls_and_get_response(
-        history_messages: list[InteractionMessage],
-        client: genai.Client,
-        tools: list,
-        system_prompt: str,
+    history_messages: list[InteractionMessage],
+    client: genai.Client,
+    tools: list,
+    system_prompt: str,
+    max_turns: int = 10,
 ) -> Tuple[Optional[str], dict, list[str]]:
     """
-    Executes a conversation with tool calling and returns the final text response,
-    tool results, and list of tool call names.
+    Executes a multi-turn conversation with tool calling until a text response is received.
+    1.  Calls the model.
+    2.  If the model returns a text response, the loop terminates.
+    3.  If the model returns tool calls, they are executed, and their results are added to the history.
+    4.  The loop continues until a text response is given or max_turns is reached.
+    Returns the final text response, the results of all tools called, and a list of tool call names.
     """
     genai_history = await get_genai_history(history_messages)
     config = types.GenerateContentConfig(
@@ -154,62 +159,34 @@ async def _execute_tool_calls_and_get_response(
         automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
     )
 
-    logger.info("--- Calling Gemini for tool execution/response ---")
-    logger.info(f"System prompt snippet: {system_prompt[:200]}...")
+    all_tool_results = {}
+    all_tool_call_names = []
+    response = None
 
-    response = await client.aio.models.generate_content(
-        model=GEMINI_MODEL, contents=genai_history, config=config
-    )
+    for i in range(max_turns):
+        logger.info(
+            f"--- Calling Gemini for tool execution/response (Turn {i + 1}/{max_turns}) ---"
+        )
+        response = await client.aio.models.generate_content(
+            model=GEMINI_MODEL, contents=genai_history, config=config
+        )
 
-    # Enhanced logging for response debugging
-    logger.info(f"Response has {len(response.candidates) if response.candidates else 0} candidates")
+        if not response.function_calls:
+            logger.info(
+                "--- No tool calls from Gemini. Returning direct text response. ---"
+            )
+            text_response = get_response_text(response)
+            return text_response, all_tool_results, all_tool_call_names
 
-    if response.candidates:
-        for candidate_idx, candidate in enumerate(response.candidates):
-            logger.info(f"Candidate {candidate_idx}: finish_reason={candidate.finish_reason}")
+        logger.info(
+            f"--- Gemini returned {len(response.function_calls)} tool call(s). Executing them. ---"
+        )
 
-            if candidate.content and candidate.content.parts:
-                logger.info(f"Candidate {candidate_idx} has {len(candidate.content.parts)} parts")
+        # Add the model's turn (with function calls) to history before executing
+        genai_history.append(response.candidates[0].content)
 
-                # Log detailed information about each part
-                for part_idx, part in enumerate(candidate.content.parts):
-                    part_info = {}
+        function_response_parts = []
 
-                    # Check all possible part types
-                    if hasattr(part, 'text') and part.text:
-                        part_info['text'] = part.text[:100] + "..." if len(part.text) > 100 else part.text
-
-                    if hasattr(part, 'function_call') and part.function_call:
-                        part_info['function_call'] = {
-                            'name': part.function_call.name,
-                            'args': dict(part.function_call.args) if part.function_call.args else {}
-                        }
-
-                    if hasattr(part, 'function_response') and part.function_response:
-                        part_info['function_response'] = str(part.function_response)
-
-                    # Log any other attributes that might be present
-                    part_dict = part.model_dump(exclude_none=True) if hasattr(part, 'model_dump') else {}
-                    for key, value in part_dict.items():
-                        if key not in ['text', 'function_call', 'function_response']:
-                            part_info[key] = str(value)[:100] + "..." if len(str(value)) > 100 else str(value)
-
-                    logger.info(f"Part {part_idx}: {part_info}")
-            else:
-                logger.info(f"Candidate {candidate_idx} has no content or parts")
-
-    # Log function calls from response
-    if response.function_calls:
-        logger.info(f"Response has {len(response.function_calls)} function calls")
-        for fc_idx, fc in enumerate(response.function_calls):
-            logger.info(f"Function call {fc_idx}: {fc.name} with args: {dict(fc.args) if fc.args else {} }")
-    else:
-        logger.info("Response has no function calls")
-
-    tool_results = {}
-    tool_call_names = []
-
-    if response.function_calls:
         for function_call in response.function_calls:
             tool_name = function_call.name
             tool_args = dict(function_call.args) if function_call.args else {}
@@ -218,22 +195,49 @@ async def _execute_tool_calls_and_get_response(
             if tool_function:
                 logger.info(f"Executing tool: {tool_name} with args: {tool_args}")
                 result = tool_function(**tool_args)
-                tool_results[tool_name] = result
-                tool_call_names.append(tool_name)
+                all_tool_results[tool_name] = result
+                if tool_name not in all_tool_call_names:
+                    all_tool_call_names.append(tool_name)
                 logger.info(f"Tool {tool_name} returned: {result}")
+
+                # The response must be a dict for from_function_response
+                response_content = result
+                if not isinstance(response_content, dict):
+                    response_content = {"content": result}
+
+                function_response_parts.append(
+                    types.Part.from_function_response(
+                        name=tool_name, response=response_content
+                    )
+                )
             else:
                 logger.warning(f"Tool {tool_name} not found in available tools")
 
-    # Get text response if available
-    text_response = get_response_text(response)
+        # Add the tool results to history for the next turn
+        if function_response_parts:
+            genai_history.append(
+                types.Content(role="tool", parts=function_response_parts)
+            )
+        else:
+            # If no tools were actually executed, break to avoid infinite loop
+            break
 
-    logger.info(f"Final text response: '{text_response[:100]}...'" if len(
-        text_response) > 100 else f"Final text response: '{text_response}'")
-    logger.info(f"Tool results: {tool_results}")
-    logger.info(f"Tool call names: {tool_call_names}")
+    # If loop finishes due to max_turns, it means we are in a tool-call loop.
+    logger.warning(
+        f"Max tool call turns ({max_turns}) reached. Returning last response."
+    )
+    text_response = get_response_text(response) if response else ""
+
+    logger.info(
+        f"Final text response from loop: '{text_response[:100]}...'"
+        if len(text_response) > 100
+        else f"Final text response: '{text_response}'"
+    )
+    logger.info(f"All tool results: {all_tool_results}")
+    logger.info(f"All tool call names: {all_tool_call_names}")
     logger.info("--- End of Gemini call ---")
 
-    return text_response, tool_results, tool_call_names
+    return text_response, all_tool_results, all_tool_call_names
 
 
 async def _get_final_text_response(
@@ -343,8 +347,8 @@ async def _workflow_awaiting_nit(
                 if found_record:
                     logger.info(f"Found NIT {nit} in Google Sheet: {found_record}")
                     search_result = {
-                        "cliente": found_record.get("Cliente"),
-                        "estado": found_record.get("Estado del cliente"),
+                        "cliente": found_record.get(" Cliente"),
+                        "estado": found_record.get(" Estado del cliente"),
                         "responsable_comercial": found_record.get(
                             " RESPONSABLE COMERCIAL"
                         ),
@@ -796,3 +800,4 @@ async def _workflow_customer_asked_for_email_data_sent(
         tool_call_names[0] if tool_call_names else None,
         interaction_data,
     )
+

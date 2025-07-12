@@ -9,7 +9,6 @@ from .tools import clasificar_interaccion
 
 from src.shared.enums import InteractionType
 from src.shared.constants import GEMINI_MODEL
-from src.shared.prompts import CONTACTO_BASE_SYSTEM_PROMPT
 from src.shared.tools import obtener_ayuda_humana
 from src.shared.schemas import Clasificacion, InteractionMessage
 from src.shared.utils.history import get_genai_history
@@ -33,156 +32,105 @@ async def workflow_tipo_de_interaccion(
 
     model = GEMINI_MODEL
 
-    classification_tool_config = types.ToolConfig(
-        function_calling_config=types.FunctionCallingConfig(
-            mode=types.FunctionCallingConfigMode.ANY,
-            allowed_function_names=["clasificar_interaccion"],
-        )
-    )
-    classification_tools = [clasificar_interaccion]
-    classification_config = types.GenerateContentConfig(
-        tools=classification_tools,
-        system_instruction=TIPO_DE_INTERACCION_SYSTEM_PROMPT,
-        tool_config=classification_tool_config,
-        temperature=0.0,
-        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-    )
-
-    response_classification = await client.aio.models.generate_content(
-        model=model, contents=genai_history, config=classification_config
-    )
-    if response_classification.candidates:
-        # Log the full content parts for debugging, in a serializable format
-        if (
-            response_classification.candidates[0].content
-            and response_classification.candidates[0].content.parts
-        ):
-            try:
-                parts_for_logging = [
-                    part.model_dump(exclude_none=True)
-                    for part in response_classification.candidates[0].content.parts
-                ]
-                logger.debug(f"Classification response parts: {parts_for_logging}")
-            except Exception as e:
-                logger.error(
-                    f"Could not serialize classification response parts for logging: {e}"
-                )
-                logger.debug(
-                    f"Classification response parts (raw): {response_classification.candidates[0].content.parts}"
-                )
-    else:
-        logger.debug("Classification response has no candidates.")
-
-    clasificacion = None
-    if response_classification.function_calls:
-        last_function_call = response_classification.function_calls[0]
-        if last_function_call.name == "clasificar_interaccion":
-            clasificacion = Clasificacion.model_validate(last_function_call.args)
-
-    assistant_message = None
-    tool_call_name = None
-
     tools = [
+        clasificar_interaccion,
         obtener_ayuda_humana,
         es_ciudad_valida,
         es_mercancia_valida,
         es_solicitud_de_mudanza,
         es_solicitud_de_paqueteo,
     ]
-    chat_config = types.GenerateContentConfig(
+    config = types.GenerateContentConfig(
         tools=tools,
-        system_instruction=CONTACTO_BASE_SYSTEM_PROMPT,
+        system_instruction=TIPO_DE_INTERACCION_SYSTEM_PROMPT,
+        temperature=0.0,
         automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
     )
-    response_chat = await client.aio.models.generate_content(
-        model=model, contents=genai_history, config=chat_config
-    )
 
-    if response_chat.function_calls:
-        # Check if any validation function was called and handle the results
-        for function_call in response_chat.function_calls:
+    response = await client.aio.models.generate_content(
+        model=model, contents=genai_history, config=config
+    )
+    if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
+        try:
+            parts_for_logging = [
+                part.model_dump(exclude_none=True)
+                for part in response.candidates[0].content.parts
+            ]
+            logger.info(f"Interaction response parts: {parts_for_logging}")
+        except Exception as e:
+            logger.error(f"Could not serialize response parts for logging: {e}")
+    else:
+        logger.info("Interaction response has no candidates or parts.")
+
+    clasificacion = None
+    assistant_message = None
+    tool_call_name = None
+
+    if response.function_calls:
+        # Extract classification if present; it's a non-terminating side-effect.
+        for function_call in response.function_calls:
+            if function_call.name == "clasificar_interaccion":
+                clasificacion = Clasificacion.model_validate(function_call.args)
+                break
+
+        # Process other function calls that might generate a terminating response.
+        for function_call in response.function_calls:
+            if function_call.name == "clasificar_interaccion":
+                continue
+
+            terminating_message = None
+            tool_call_name = function_call.name
+
             if function_call.name == "es_mercancia_valida":
-                # Get the merchandise type from the function args
                 mercancia = function_call.args.get("tipo_mercancia", "")
                 validation_result = es_mercancia_valida(mercancia)
-                
-                # If validation returns a string, it means the merchandise is invalid
                 if isinstance(validation_result, str):
-                    assistant_message = InteractionMessage(
-                        role=InteractionType.MODEL,
-                        message=validation_result,
-                        tool_calls=[function_call.name],
-                    )
-                    return [assistant_message], clasificacion, function_call.name
-                    
+                    terminating_message = validation_result
             elif function_call.name == "es_ciudad_valida":
-                # Get the city from the function args
                 ciudad = function_call.args.get("ciudad", "")
                 validation_result = es_ciudad_valida(ciudad)
-                
-                # If validation returns a string, it means the city is invalid
                 if isinstance(validation_result, str):
-                    assistant_message = InteractionMessage(
-                        role=InteractionType.MODEL,
-                        message=validation_result,
-                        tool_calls=[function_call.name],
-                    )
-                    return [assistant_message], clasificacion, function_call.name
-                    
+                    terminating_message = validation_result
             elif function_call.name == "es_solicitud_de_mudanza":
-                # Get the boolean value from the function args
                 es_mudanza = function_call.args.get("es_mudanza", False)
-                validation_result = es_solicitud_de_mudanza(es_mudanza)
-                
-                # If it's a moving request, show appropriate message
-                if validation_result:
+                if es_solicitud_de_mudanza(es_mudanza):
                     from src.shared.prompts import PROMPT_SERVICIO_NO_PRESTADO_MUDANZA
-                    assistant_message = InteractionMessage(
-                        role=InteractionType.MODEL,
-                        message=PROMPT_SERVICIO_NO_PRESTADO_MUDANZA,
-                        tool_calls=[function_call.name],
-                    )
-                    return [assistant_message], clasificacion, function_call.name
-                    
+                    terminating_message = PROMPT_SERVICIO_NO_PRESTADO_MUDANZA
             elif function_call.name == "es_solicitud_de_paqueteo":
-                # Get the boolean value from the function args
                 es_paqueteo = function_call.args.get("es_paqueteo", False)
-                validation_result = es_solicitud_de_paqueteo(es_paqueteo)
-                
-                # If it's a package request, show appropriate message
-                if validation_result:
+                if es_solicitud_de_paqueteo(es_paqueteo):
                     from src.shared.prompts import PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO
-                    assistant_message = InteractionMessage(
-                        role=InteractionType.MODEL,
-                        message=PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO,
-                        tool_calls=[function_call.name],
-                    )
-                    return [assistant_message], clasificacion, function_call.name
-                    
+                    terminating_message = PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO
             elif function_call.name == "obtener_ayuda_humana":
-                # Only call human help if explicitly requested or if there's a genuine need
-                # Don't call it just because we can't classify with high confidence
-                user_message = history_messages[-1].message.lower() if history_messages else ""
-                
-                # Check if user explicitly requested human help
-                human_help_keywords = ["ayuda", "humano", "persona", "agente", "hablar con alguien"]
-                if any(keyword in user_message for keyword in human_help_keywords):
-                    tool_call_name = "obtener_ayuda_humana"
-                    logger.warning("User explicitly requested human help.")
-                    assistant_message = InteractionMessage(
-                        role=InteractionType.MODEL, message=obtener_ayuda_humana()
-                    )
-                    return [assistant_message], clasificacion, tool_call_name
+                terminating_message = obtener_ayuda_humana()
 
+            if terminating_message:
+                assistant_message = InteractionMessage(
+                    role=InteractionType.MODEL,
+                    message=terminating_message,
+                    tool_calls=[tool_call_name],
+                )
+                return [assistant_message], clasificacion, tool_call_name
+
+    # If no terminating tool was called, use the text response from the model.
     if not assistant_message:
-        assistant_message_text = get_response_text(response_chat)
+        assistant_message_text = get_response_text(response)
         if assistant_message_text:
             assistant_message = InteractionMessage(
                 role=InteractionType.MODEL, message=assistant_message_text
             )
 
     if not assistant_message:
-        # This fallback is for cases where the model fails to generate any response or tool call.
         return [], clasificacion, None
+
+    # Determine tool_call_name if not already set by a terminating tool.
+    if not tool_call_name and response.function_calls:
+        non_classifying_calls = [
+            fc.name
+            for fc in response.function_calls
+            if fc.name != "clasificar_interaccion"
+        ]
+        if non_classifying_calls:
+            tool_call_name = non_classifying_calls[0]
 
     return [assistant_message], clasificacion, tool_call_name
