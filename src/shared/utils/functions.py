@@ -55,6 +55,7 @@ def get_response_text(response: types.GenerateContentResponse) -> str:
 
                 # Log any other attributes that might be present
                 part_dict = part.model_dump(exclude_none=True) if hasattr(part, 'model_dump') else {}
+                part_dict.pop("thought_signature", None)
                 for key, value in part_dict.items():
                     if key not in ['text', 'function_call', 'function_response']:
                         part_info[key] = str(value)[:100] + "..." if len(str(value)) > 100 else str(value)

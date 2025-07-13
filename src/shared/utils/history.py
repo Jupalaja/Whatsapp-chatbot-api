@@ -90,6 +90,7 @@ def genai_content_to_interaction_messages(
             parts_json_list = []
             for p in content.parts:
                 part_dump = p.model_dump(exclude_none=True)
+                part_dump.pop("thought_signature", None)
                 
                 # Convert any bytes objects to base64 strings recursively
                 part_dump = _convert_bytes_to_base64(part_dump)

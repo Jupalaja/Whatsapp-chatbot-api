@@ -52,10 +52,11 @@ async def workflow_tipo_de_interaccion(
     )
     if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
         try:
-            parts_for_logging = [
-                part.model_dump(exclude_none=True)
-                for part in response.candidates[0].content.parts
-            ]
+            parts_for_logging = []
+            for part in response.candidates[0].content.parts:
+                part_dump = part.model_dump(exclude_none=True)
+                part_dump.pop("thought_signature", None)
+                parts_for_logging.append(part_dump)
             logger.info(f"Interaction response parts: {parts_for_logging}")
         except Exception as e:
             logger.error(f"Could not serialize response parts for logging: {e}")
