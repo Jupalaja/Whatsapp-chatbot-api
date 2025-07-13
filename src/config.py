@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     # Google Sheets
     GOOGLE_SHEET_ID_CLIENTES_POTENCIALES: Optional[str] = (
-        "1BrLKd7ijnWdph8s7tp-RrYk3vProJUQhEkvPZJLA6mA"
+        "1ulDgCbARxwiNIwz2wddZWRcUFDvWPwfunpxdbxzttrY"
     )
     GOOGLE_SHEET_ID_EXPORT: Optional[str] = (
         "1Ya_hzfVc5zRFBKc8581eKagvVwlLyaaRH7dzYRTBR3g"

@@ -345,6 +345,7 @@ async def _workflow_awaiting_nit(
                         break
 
                 if found_record:
+                    logger.info(f"Columns found in sheet for NIT {nit}: {list(found_record.keys())}")
                     logger.info(f"Found NIT {nit} in Google Sheet: {found_record}")
                     search_result = {
                         "cliente": found_record.get(" Cliente"),
@@ -800,4 +801,3 @@ async def _workflow_customer_asked_for_email_data_sent(
         tool_call_names[0] if tool_call_names else None,
         interaction_data,
     )
-
