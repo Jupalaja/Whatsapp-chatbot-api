@@ -142,14 +142,14 @@ async def _execute_tool_calls_and_get_response(
     tools: list,
     system_prompt: str,
     max_turns: int = 10,
-) -> Tuple[Optional[str], dict, list[str]]:
+) -> Tuple[Optional[str], dict, list[str], dict]:
     """
     Executes a multi-turn conversation with tool calling until a text response is received.
     1.  Calls the model.
     2.  If the model returns a text response, the loop terminates.
     3.  If the model returns tool calls, they are executed, and their results are added to the history.
     4.  The loop continues until a text response is given or max_turns is reached.
-    Returns the final text response, the results of all tools called, and a list of tool call names.
+    Returns the final text response, the results of all tools called, a list of tool call names, and tool arguments.
     """
     genai_history = await get_genai_history(history_messages)
     config = types.GenerateContentConfig(
@@ -161,6 +161,7 @@ async def _execute_tool_calls_and_get_response(
 
     all_tool_results = {}
     all_tool_call_names = []
+    all_tool_args_map = {}
     response = None
 
     for i in range(max_turns):
@@ -176,7 +177,7 @@ async def _execute_tool_calls_and_get_response(
                 "--- No tool calls from Gemini. Returning direct text response. ---"
             )
             text_response = get_response_text(response)
-            return text_response, all_tool_results, all_tool_call_names
+            return text_response, all_tool_results, all_tool_call_names, all_tool_args_map
 
         logger.info(
             f"--- Gemini returned {len(response.function_calls)} tool call(s). Executing them. ---"
@@ -190,6 +191,7 @@ async def _execute_tool_calls_and_get_response(
         for function_call in response.function_calls:
             tool_name = function_call.name
             tool_args = dict(function_call.args) if function_call.args else {}
+            all_tool_args_map[tool_name] = tool_args
             tool_function = next((t for t in tools if t.__name__ == tool_name), None)
 
             if tool_function:
@@ -235,9 +237,10 @@ async def _execute_tool_calls_and_get_response(
     )
     logger.info(f"All tool results: {all_tool_results}")
     logger.info(f"All tool call names: {all_tool_call_names}")
+    logger.info(f"All tool args: {all_tool_args_map}")
     logger.info("--- End of Gemini call ---")
 
-    return text_response, all_tool_results, all_tool_call_names
+    return text_response, all_tool_results, all_tool_call_names, all_tool_args_map
 
 
 async def _get_final_text_response(
@@ -396,7 +399,12 @@ async def _workflow_awaiting_nit(
         es_solicitud_de_paqueteo,
     ]
 
-    text_response, tool_results, tool_call_names = await _execute_tool_calls_and_get_response(
+    (
+        text_response,
+        tool_results,
+        tool_call_names,
+        tool_args_map,
+    ) = await _execute_tool_calls_and_get_response(
         history_messages, client, tools, CLIENTE_POTENCIAL_SYSTEM_PROMPT
     )
 
@@ -464,39 +472,26 @@ async def _workflow_awaiting_nit(
         search_result = tool_results["buscar_nit"]
         interaction_data["resultado_buscar_nit"] = search_result
 
-        # Get NIT from the last function call args by parsing the conversation
-        nit = None
-        genai_history = await get_genai_history(history_messages)
-        response = await client.aio.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=genai_history,
-            config=types.GenerateContentConfig(
-                tools=tools,
-                system_instruction=CLIENTE_POTENCIAL_SYSTEM_PROMPT,
-                temperature=0.0,
-                automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-            )
-        )
-
-        if response.function_calls:
-            for fc in response.function_calls:
-                if fc.name == "buscar_nit":
-                    nit = fc.args.get("nit")
-                    break
+        # Get NIT from the tool arguments
+        nit = tool_args_map.get("buscar_nit", {}).get("nit")
 
         if "remaining_information" not in interaction_data:
             interaction_data["remaining_information"] = {}
         interaction_data["remaining_information"]["nit"] = nit
 
-        assistant_message_text = await _get_final_text_response(
-            history_messages, client, CLIENTE_POTENCIAL_GATHER_INFO_SYSTEM_PROMPT
-        )
+        assistant_message_text = text_response
+        if not assistant_message_text:
+            # Fallback in case the model does not return text after tool execution
+            assistant_message_text = await _get_final_text_response(
+                history_messages, client, CLIENTE_POTENCIAL_GATHER_INFO_SYSTEM_PROMPT
+            )
+
         return (
             [
                 InteractionMessage(
                     role=InteractionType.MODEL,
                     message=assistant_message_text,
-                    tool_calls=["buscar_nit"]
+                    tool_calls=["buscar_nit"],
                 )
             ],
             ClientePotencialState.AWAITING_REMAINING_INFORMATION,
@@ -546,7 +541,12 @@ async def _workflow_awaiting_persona_natural_freight_info(
     """Handles the workflow when waiting for freight info from a natural person."""
     tools = [necesita_agente_de_carga, obtener_ayuda_humana]
 
-    text_response, tool_results, tool_call_names = await _execute_tool_calls_and_get_response(
+    (
+        text_response,
+        tool_results,
+        tool_call_names,
+        _,
+    ) = await _execute_tool_calls_and_get_response(
         history_messages, client, tools, CLIENTE_POTENCIAL_SYSTEM_PROMPT
     )
 
@@ -593,7 +593,12 @@ async def _workflow_awaiting_remaining_information(
         cliente_solicito_correo,
     ]
 
-    text_response, tool_results, tool_call_names = await _execute_tool_calls_and_get_response(
+    (
+        text_response,
+        tool_results,
+        tool_call_names,
+        _,
+    ) = await _execute_tool_calls_and_get_response(
         history_messages, client, tools, CLIENTE_POTENCIAL_GATHER_INFO_SYSTEM_PROMPT
     )
 
@@ -750,7 +755,12 @@ async def _workflow_customer_asked_for_email_data_sent(
     """Handles the workflow after the user has requested to send info via email."""
     tools = [guardar_correo_cliente, obtener_ayuda_humana]
 
-    text_response, tool_results, tool_call_names = await _execute_tool_calls_and_get_response(
+    (
+        text_response,
+        tool_results,
+        tool_call_names,
+        _,
+    ) = await _execute_tool_calls_and_get_response(
         history_messages, client, tools, PROMPT_GET_CUSTOMER_EMAIL_SYSTEM_PROMPT
     )
 
