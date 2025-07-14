@@ -58,7 +58,7 @@ def get_response_text(response: types.GenerateContentResponse) -> str:
                 part_dict.pop("thought_signature", None)
                 for key, value in part_dict.items():
                     if key not in ['text', 'function_call', 'function_response']:
-                        part_info[key] = str(value)[:100] + "..." if len(str(value)) > 100 else str(value)
+                        part_info[key] = str(value)
 
                 logger.info(f"Part {part_idx}: {part_info}")
         else:
@@ -66,7 +66,7 @@ def get_response_text(response: types.GenerateContentResponse) -> str:
 
     result = "".join(texts)
     logger.info(
-        f"Final extracted text: '{result[:100]}...'" if len(result) > 100 else f"Final extracted text: '{result}'")
+        f"Final extracted text: '{result}'")
     return result
 
 

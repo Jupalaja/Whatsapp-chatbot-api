@@ -26,7 +26,7 @@ from .tools import (
     necesita_agente_de_carga,
     guardar_correo_cliente,
     buscar_nit as buscar_nit_tool,
-    formatear_nombre_responsable,
+    limpiar_datos_agente_comercial,
 )
 from src.config import settings
 from src.shared.constants import GEMINI_MODEL
@@ -101,12 +101,14 @@ async def _write_cliente_potencial_to_sheet(
         motivo_descarte = interaction_data.get("discarded", "")
         if not motivo_descarte and customer_email:
             motivo_descarte = "Prefirió correo"
-        comercial_asignado_raw = search_result.get("responsable_comercial", "")
-        comercial_asignado = (
-            formatear_nombre_responsable(comercial_asignado_raw)
-            if comercial_asignado_raw
-            else ""
-        )
+        
+        # Use cleaned commercial agent name if available
+        comercial_asignado = interaction_data.get("agente_comercial_formateado", "")
+        if not comercial_asignado:
+            comercial_asignado_raw = search_result.get("responsable_comercial", "")
+            if comercial_asignado_raw:
+                # Fallback to simple title case if cleaning wasn't performed
+                comercial_asignado = comercial_asignado_raw.title()
 
         row_to_append = [
             fecha_perfilacion,
@@ -260,9 +262,76 @@ async def _get_final_text_response(
     return get_response_text(response)
 
 
+async def _clean_commercial_agent_data(
+    search_result: dict,
+    client: genai.Client
+) -> dict:
+    """
+    Cleans commercial agent data using the model to determine if it's valid.
+    
+    Returns:
+        dict with cleaned data or indication that no valid agent was found
+    """
+    responsable_comercial = search_result.get("responsable_comercial", "")
+    email = search_result.get("email", "")
+    telefono = search_result.get("phoneNumber", "")
+    
+    if not responsable_comercial:
+        return {
+            "agente_valido": False,
+            "razon": "No se encontró responsable comercial"
+        }
+    
+    # Create a simple prompt for the data cleaning
+    cleaning_prompt = f"""
+    Analiza los siguientes datos de un agente comercial obtenidos de Google Sheets y determina si representan un agente válido:
+    
+    Responsable comercial: "{responsable_comercial}"
+    Email: "{email}"
+    Teléfono: "{telefono}"
+    
+    Usa la herramienta limpiar_datos_agente_comercial para procesar estos datos.
+    """
+    
+    tools = [limpiar_datos_agente_comercial]
+    
+    config = types.GenerateContentConfig(
+        tools=tools,
+        system_instruction="Eres un experto en limpieza de datos. Analiza los datos del agente comercial y determina si son válidos.",
+        temperature=0.0,
+        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+    )
+    
+    try:
+        response = await client.aio.models.generate_content(
+            model=GEMINI_MODEL, 
+            contents=[{"role": "user", "parts": [{"text": cleaning_prompt}]}], 
+            config=config
+        )
+        
+        if response.function_calls:
+            function_call = response.function_calls[0]
+            if function_call.name == "limpiar_datos_agente_comercial":
+                return dict(function_call.args)
+        
+        # Fallback if no function call
+        return {
+            "agente_valido": False,
+            "razon": "No se pudo procesar los datos del agente"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error cleaning commercial agent data: {e}")
+        return {
+            "agente_valido": False,
+            "razon": "Error al procesar los datos del agente"
+        }
+
+
 async def _workflow_remaining_information_provided(
         interaction_data: dict,
         sheets_service: Optional[GoogleSheetsService],
+        client: genai.Client,
 ) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str], dict]:
     """
     Handles the logic after all client information has been provided and stored.
@@ -279,27 +348,31 @@ async def _workflow_remaining_information_provided(
         assistant_message_text = PROMPT_ASIGNAR_AGENTE_COMERCIAL
         tool_call_name = "obtener_ayuda_humana"
     elif estado in ["PERDIDO", "PERDIDO MÁS DE 2 AÑOS"]:
-        responsable = search_result.get("responsable_comercial")
-        if responsable:
-            responsable_formateado = formatear_nombre_responsable(responsable)
-            email = search_result.get("email")
-            telefono = search_result.get("phoneNumber")
-
+        # Clean the commercial agent data before using it
+        cleaned_data = await _clean_commercial_agent_data(search_result, client)
+        
+        if cleaned_data.get("agente_valido", False):
+            nombre_formateado = cleaned_data.get("nombre_formateado", "")
+            email_valido = cleaned_data.get("email_valido", "")
+            telefono_valido = cleaned_data.get("telefono_valido", "")
+            
+            # Store the cleaned name for the sheet
+            interaction_data["agente_comercial_formateado"] = nombre_formateado
+            
             contact_details = ""
-            if email and telefono:
-                contact_details = (
-                    f" Lo puedes contactar al correo *{email}* o al teléfono *{telefono}*."
-                )
-            elif email:
-                contact_details = f" Lo puedes contactar al correo *{email}*."
-            elif telefono:
-                contact_details = f" Lo puedes contactar al teléfono *{telefono}*."
-
+            if email_valido and telefono_valido:
+                contact_details = f" Lo puedes contactar al correo *{email_valido}* o al teléfono *{telefono_valido}*."
+            elif email_valido:
+                contact_details = f" Lo puedes contactar al correo *{email_valido}*."
+            elif telefono_valido:
+                contact_details = f" Lo puedes contactar al teléfono *{telefono_valido}*."
+            
             assistant_message_text = PROMPT_CONTACTAR_AGENTE_ASIGNADO.format(
-                responsable_comercial=responsable_formateado,
+                responsable_comercial=nombre_formateado,
                 contact_details=contact_details,
             )
-        else:  # Fallback if contact info is missing
+        else:
+            logger.warn(f"Invalid commercial agent data: {cleaned_data.get('razon', 'Unknown reason')}")
             assistant_message_text = PROMPT_ASIGNAR_AGENTE_COMERCIAL
             tool_call_name = "obtener_ayuda_humana"
     else:  # New client or any other status
@@ -708,7 +781,9 @@ async def _workflow_awaiting_remaining_information(
 
     if tool_results.get("informacion_esencial_obtenida"):
         return await _workflow_remaining_information_provided(
-            interaction_data=interaction_data, sheets_service=sheets_service
+            interaction_data=interaction_data, 
+            sheets_service=sheets_service, 
+            client=client
         )
 
     # If no significant tool calls, continue conversation

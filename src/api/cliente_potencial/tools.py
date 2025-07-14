@@ -13,7 +13,7 @@ def es_persona_natural():
 
 
 def necesita_agente_de_carga():
-    """Se debe llamar si la persona natural indica que SÍ está interesada en agenciamiento de carga. Usar solo cuando la persona confirma que necesita un 'agente de carga' o que necesita 'agenciamiento de carga' o un 'freight forwarder'."""
+    """Se debe llamar si la persona natural indica que SÍ está interesada en agenciamiento de carga. Usar solo cuando la persona confirme que necesita un 'agente de carga' o que necesita 'agenciamiento de carga' o un 'freight forwarder'."""
     return True
 
 
@@ -67,36 +67,46 @@ def guardar_correo_cliente(email: str):
     return email
 
 
-def formatear_nombre_responsable(nombre_completo: str) -> str:
+def limpiar_datos_agente_comercial(
+    responsable_comercial: str,
+    email: str,
+    telefono: str
+) -> dict:
     """
-    Formatea un nombre completo que está en formato 'APELLIDOS NOMBRES' a 'Nombres Apellidos' con capitalización de tipo título.
-    El modelo debe analizar el nombre del responsable comercial y utilizar esta función para formatearlo correctamente.
-    Por ejemplo, si el nombre es 'VELEZ IVONNE', se convierte en 'Ivonne Velez'.
-    Otro ejemplo: 'Zapata Castrillon Luis Fernando' se convierte en 'Luis Fernando Zapata Castrillon'.
-
-    Heurística de formato:
-    - 2 palabras: Apellido Nombre -> Nombre Apellido
-    - 3 palabras: Apellido1 Apellido2 Nombre -> Nombre Apellido1 Apellido2
-    - 4 palabras: Apellido1 Apellido2 Nombre1 Nombre2 -> Nombre1 Nombre2 Apellido1 Apellido2
-    - Para otros casos, se dividirá por la mitad.
+    Limpia y valida los datos del agente comercial obtenidos de Google Sheets.
+    
+    El modelo debe analizar los datos y determinar:
+    1. Si representan un agente comercial válido
+    2. Si el nombre necesita ser formateado correctamente
+    3. Si los datos de contacto son válidos
+    
+    Args:
+        responsable_comercial: Nombre del responsable comercial desde Google Sheets
+        email: Email del responsable comercial
+        telefono: Teléfono del responsable comercial
+        
+    Returns:
+        dict con las siguientes claves:
+        - "agente_valido": bool - True si hay un agente válido, False si no
+        - "nombre_formateado": str - Nombre formateado correctamente (solo si agente_valido=True)
+        - "email_valido": str - Email válido o cadena vacía
+        - "telefono_valido": str - Teléfono válido o cadena vacía
+        - "razon": str - Explicación de por qué no es válido (solo si agente_valido=False)
     """
-    parts = nombre_completo.strip().split()
-    num_parts = len(parts)
-
-    if num_parts <= 1:
-        return nombre_completo.title()
-
-    if num_parts == 2:  # Asume APELLIDO NOMBRE
-        nombres = parts[1:]
-        apellidos = parts[:1]
-    elif num_parts == 3:  # Heurística: Asume APELLIDO1 APELLIDO2 NOMBRE
-        nombres = parts[2:]
-        apellidos = parts[:2]
-    else:  # 4 o más palabras
-        # Asume que los apellidos son la primera mitad y los nombres la segunda
-        split_point = num_parts // 2
-        apellidos = parts[:split_point]
-        nombres = parts[split_point:]
-
-    nombre_formateado = " ".join(nombres) + " " + " ".join(apellidos)
-    return nombre_formateado.title()
+    # Análisis de datos - indicadores de agente no válido:
+    # - Nombres como "SIN RESPONSABLE", "N/A", "NO ASIGNADO", etc.
+    # - Emails como "N.A", "N/A", "NO DISPONIBLE", etc.
+    # - Teléfonos como "N.A", "N/A", "NO DISPONIBLE", etc.
+    
+    # Indicadores de datos válidos:
+    # - Nombre con formato de persona real (puede estar en formato "APELLIDOS NOMBRES")
+    # - Email con formato válido
+    # - Teléfono con formato válido
+    
+    return {
+        "agente_valido": False,
+        "nombre_formateado": "",
+        "email_valido": "",
+        "telefono_valido": "",
+        "razon": "Datos insuficientes para determinar validez"
+    }
