@@ -468,6 +468,9 @@ async def _workflow_awaiting_nit(
         es_mercancia_valida,
         es_solicitud_de_mudanza,
         es_solicitud_de_paqueteo,
+        obtener_informacion_esencial_cliente_potencial,
+        obtener_informacion_adicional_cliente_potencial,
+        es_ciudad_valida,
     ]
 
     (
@@ -525,6 +528,22 @@ async def _workflow_awaiting_nit(
             interaction_data,
         )
 
+    validation_result_ciudad = tool_results.get("es_ciudad_valida")
+    if validation_result_ciudad and isinstance(validation_result_ciudad, str):
+        interaction_data["discarded"] = "no_es_ciudad_valida"
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL,
+                    message=validation_result_ciudad,
+                    tool_calls=["es_ciudad_valida"],
+                )
+            ],
+            ClientePotencialState.CONVERSATION_FINISHED,
+            "es_ciudad_valida",
+            interaction_data,
+        )
+
     if "obtener_ayuda_humana" in tool_results:
         return (
             [
@@ -539,17 +558,48 @@ async def _workflow_awaiting_nit(
             interaction_data,
         )
 
+    # Process information gathering
+    if "remaining_information" not in interaction_data:
+        interaction_data["remaining_information"] = {}
+
+    if "obtener_informacion_esencial_cliente_potencial" in tool_results:
+        collected_info = tool_results["obtener_informacion_esencial_cliente_potencial"]
+        interaction_data["remaining_information"].update(collected_info)
+
+    if "obtener_informacion_adicional_cliente_potencial" in tool_results:
+        collected_info = tool_results[
+            "obtener_informacion_adicional_cliente_potencial"
+        ]
+        interaction_data["remaining_information"].update(collected_info)
+
     if "buscar_nit" in tool_results:
         search_result = tool_results["buscar_nit"]
         interaction_data["resultado_buscar_nit"] = search_result
-
-        # Get NIT from the tool arguments
         nit = tool_args_map.get("buscar_nit", {}).get("nit")
+        if nit:
+            interaction_data["remaining_information"]["nit"] = nit
 
-        if "remaining_information" not in interaction_data:
-            interaction_data["remaining_information"] = {}
-        interaction_data["remaining_information"]["nit"] = nit
+    # Check if we have all info and can finish
+    essential_keys = [
+        "nombre_persona_contacto",
+        "telefono",
+        "tipo_mercancia",
+        "ciudad_origen",
+        "ciudad_destino",
+    ]
+    remaining_info = interaction_data.get("remaining_information", {})
+    has_nit = "nit" in remaining_info
+    has_all_essential_info = all(k in remaining_info for k in essential_keys)
 
+    if has_nit and has_all_essential_info:
+        logger.info("All essential information collected in the initial workflow. Finalizing.")
+        return await _workflow_remaining_information_provided(
+            interaction_data=interaction_data,
+            sheets_service=sheets_service,
+            client=client,
+        )
+
+    if "buscar_nit" in tool_results:
         assistant_message_text = text_response
         if not assistant_message_text:
             # Fallback in case the model does not return text after tool execution
