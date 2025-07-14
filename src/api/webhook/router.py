@@ -93,9 +93,9 @@ async def send_whatsapp_list_message(phone_number: str):
             {
                 "title": "",
                 "rows": [
-                    {"title": "Quiero realizar una cotizacion", "rowId": "rowId 001"},
+                    {"title": "Quiero realizar una cotización", "rowId": "rowId 001"},
                     {
-                        "title": "Quiero consultar donde está mi vehículo",
+                        "title": "Quiero consultar dónde está mi vehículo",
                         "rowId": "rowId 002",
                     },
                     {
@@ -107,11 +107,11 @@ async def send_whatsapp_list_message(phone_number: str):
                         "rowId": "rowId 004",
                     },
                     {
-                        "title": "A quién puedo consultar para ofrecer un producto para la venta?",
+                        "title": "¿A quién puedo consultar para ofrecer un producto para la venta?",
                         "rowId": "rowId 005",
                     },
                     {
-                        "title": "Quiero averiguar sobre la liquidación de un manifiesto",
+                        "title": "Quiero consultar sobre la liquidación de un manifiesto",
                         "rowId": "rowId 006",
                     },
                 ],
