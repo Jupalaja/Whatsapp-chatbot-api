@@ -41,7 +41,7 @@ def get_response_text(response: types.GenerateContentResponse) -> str:
 
                 # Check all possible part types
                 if hasattr(part, 'text') and part.text:
-                    part_info['text'] = part.text[:100] + "..." if len(part.text) > 100 else part.text
+                    part_info['text'] = part.text
                     texts.append(part.text)
 
                 if hasattr(part, 'function_call') and part.function_call:

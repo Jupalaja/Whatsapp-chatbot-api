@@ -23,12 +23,8 @@ class Settings(BaseSettings):
     GOOGLE_SA_CLIENT_X509_CERT_URL: str
 
     # Google Sheets
-    GOOGLE_SHEET_ID_CLIENTES_POTENCIALES: Optional[str] = (
-        "1ulDgCbARxwiNIwz2wddZWRcUFDvWPwfunpxdbxzttrY"
-    )
-    GOOGLE_SHEET_ID_EXPORT: Optional[str] = (
-        "1Ya_hzfVc5zRFBKc8581eKagvVwlLyaaRH7dzYRTBR3g"
-    )
+    GOOGLE_SHEET_ID_CLIENTES_POTENCIALES: Optional[str] = None
+    GOOGLE_SHEET_ID_EXPORT: Optional[str] = None
 
     # Google GenAI
     GOOGLE_GENAI_USE_VERTEXAI: bool = False

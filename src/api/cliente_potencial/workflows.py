@@ -351,13 +351,11 @@ async def _workflow_awaiting_nit(
                     logger.info(f"Columns found in sheet for NIT {nit}: {list(found_record.keys())}")
                     logger.info(f"Found NIT {nit} in Google Sheet: {found_record}")
                     search_result = {
-                        "cliente": found_record.get(" Cliente"),
-                        "estado": found_record.get(" Estado del cliente"),
-                        "responsable_comercial": found_record.get(
-                            " RESPONSABLE COMERCIAL"
-                        ),
-                        "phoneNumber": found_record.get("CELULAR"),
-                        "email": found_record.get("CORREO"),
+                        "cliente": found_record.get(" CLIENTE"),
+                        "estado": found_record.get(" ESTADO DEL CLIENTE"),
+                        "responsable_comercial": found_record.get(" RESPONSABLE COMERCIAL"),
+                        "phoneNumber": found_record.get(" CELULAR"),
+                        "email": found_record.get(" CORREO"),
                     }
                     # Strip whitespace from string values
                     for key, value in search_result.items():
