@@ -48,10 +48,9 @@ def obtener_informacion_adicional_cliente_potencial(
     promedio_viajes_mensuales: Optional[int] = None,
 ):
     """
-    Se debe llamar a esta función si el usuario proporciona voluntariamente cualquier información adicional.
+    Se debe llamar a esta función para guardar cualquier información adicional del cliente que se haya recopilado.
     Esta función guarda detalles opcionales del cliente potencial.
-    No se debe insistir al usuario para obtener esta información.
-    El modelo debe extraerla si está presente en la conversación.
+    No se debe insistir al usuario para obtener esta información si decide no proporcionarla.
     """
     # Return only provided values
     return {k: v for k, v in locals().items() if v is not None}
