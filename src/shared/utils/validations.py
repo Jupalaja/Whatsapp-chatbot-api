@@ -48,46 +48,51 @@ def _normalize_text(name: str) -> str:
     return s.lower().strip()
 
 
-FORBIDDEN_GOODS_KEYWORDS = {
-    _normalize_text(keyword) for keyword in [
-        # Mercancías que no moviliza Botero Soto
-        "desechos peligrosos", "semovientes", "animales vivos", "animal", "armas", "municiones",
-        "carnes", "despojos comestibles", "explosivos", "legumbres", "hortalizas", "plantas",
-        "raices", "tuberculos alimenticios", "liquidos inflamables", "productos de origen animal",
-        "material radiactivo", "navegacion aerea", "navegacion espacial", "navegacion maritima",
-        "navegacion fluvial", "objetos de arte", "coleccion", "antigüedad", "perlas",
-        "piedras preciosas", "metales preciosos", "pescados", "crustaceos", "moluscos", "invertebrados acuaticos",
-        "polvora", "pirotecnia", "fosforos", "cerillas", "residuos", "desperdicios",
-        "alimentos", "sustancias toxicas", "sustancias infecciosas",
-        # Productos no transportados por Botero Soto
-        "aceites crudos", "aceites de petroleo", "minerales bituminosos",
-        "alquitranes de hulla", "alquitranes de lignito", "alquitranes de turba",
-        "alquitranes minerales", "betunes", "asfaltos naturales", "pizarras bituminosas",
-        "arenas bituminosas", "asfaltitas", "rocas asfalticas", "brea", "coque de brea",
-        "coque de petroleo", "betun de petroleo", "energia electrica", "gas de hulla",
-        "gas de agua", "gas pobre", "lignitos", "azabache", "mezclas bituminosas",
-        "turba", "vaselina", "parafina", "cera de petroleo", "ozoquerita",
-        "cera de lignito", "cera de turba", "ceras minerales", "combustible para motores",
-        "gasolina", "etanol",
-    ]
-}
-
-
-def es_mercancia_valida(tipo_mercancia: str):
+def es_mercancia_valida(tipo_mercancia: str) -> str:
     """
-    Válida si el tipo de mercancía y servicio asociado son transportables por Botero Soto.
-    Devuelve True si es válido, o un mensaje de error si no lo es.
+    Valida si un tipo de mercancía o servicio es transportable por Botero Soto.
+    El modelo debe analizar la mercancía y determinar si pertenece a una de las categorías prohibidas.
+    Si la mercancía o servicio es prohibido, esta función DEBE ser llamada para generar el mensaje de rechazo.
+
+    **Instrucciones para el Modelo:**
+    1.  Analiza la mercancía mencionada por el usuario (ej: "oro", "muebles", "servicio de última milla").
+    2.  Compara la mercancía con las categorías prohibidas a continuación.
+    3.  Si la mercancía coincide con alguna categoría (ej: "oro" es un "metal precioso", o el servicio es "última milla"), **NO respondas directamente al usuario**. En su lugar, llama a esta herramienta con el `tipo_mercancia` exacto que mencionó el usuario.
+    4.  Si la mercancía **NO** está en la lista (ej: "ropa", "electrodomésticos", "repuestos"), considera que es válida y continúa la conversación normal. **NO llames a esta herramienta si la mercancía es válida.**
+
+    **Categorías de Mercancías y Servicios Prohibidos:**
+    - **Servicios Excluidos:**
+      - **Última milla:** No se ofrece distribución de última milla.
+    - **Materiales Peligrosos:**
+      - Desechos peligrosos, residuos industriales, sustancias tóxicas, infecciosas o radiactivas.
+      - Explosivos, pólvora, material pirotécnico, fósforos.
+      - Líquidos inflamables, combustibles (gasolina, etanol).
+    - **Seres Vivos y Productos Animales:**
+      - Semovientes, animales vivos o muertos.
+      - Carnes y despojos comestibles sin procesar.
+      - Otros productos de origen animal no procesados.
+    - **Objetos de Valor Excepcional:**
+      - Objetos de arte, colecciones, antigüedades.
+      - Perlas, piedras preciosas, metales preciosos (oro, plata, diamantes).
+    - **Productos Perecederos:**
+      - Legumbres, hortalizas, plantas, raíces y tubérculos alimenticios que requieran refrigeración especial.
+      - Pescados, crustáceos, moluscos y otros invertebrados acuáticos frescos.
+    - **Armamento:**
+      - Armas y municiones.
+    - **Hidrocarburos y Derivados:**
+      - Aceites crudos de petróleo, minerales bituminosos.
+      - Alquitranes, betunes, asfaltos y rocas asfálticas.
+      - Vaselina, parafina y ceras minerales.
+    - **Otros:**
+      - Navegación aérea, espacial, marítima o fluvial.
+      - Energía eléctrica, gas de hulla.
     """
     normalized_mercancia = _normalize_text(tipo_mercancia)
 
     if "ultima milla" in normalized_mercancia:
         return PROMPT_SERVICIO_NO_PRESTADO_ULTIMA_MILLA
 
-    for keyword in FORBIDDEN_GOODS_KEYWORDS:
-        if keyword in normalized_mercancia:
-            return PROMPT_MERCANCIA_NO_TRANSPORTADA.format(tipo_mercancia=tipo_mercancia)
-
-    return True
+    return PROMPT_MERCANCIA_NO_TRANSPORTADA.format(tipo_mercancia=tipo_mercancia)
 
 
 def es_ciudad_valida(ciudad: str):
