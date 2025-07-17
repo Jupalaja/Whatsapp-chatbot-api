@@ -37,7 +37,6 @@ BLACKLISTED_CITIES = {
     "cumaribo", "la primavera", "puerto carreno", "santa rosalia",
 }
 
-
 def _normalize_text(name: str) -> str:
     """Normalizes a string by removing accents, converting to lowercase, and stripping whitespace."""
     s = "".join(
@@ -47,8 +46,71 @@ def _normalize_text(name: str) -> str:
     )
     return s.lower().strip()
 
+FORBIDDEN_GOODS_KEYWORDS = {
+    _normalize_text(keyword)
+    for keyword in [
+        # From docstring
+        "ultima milla",
+        "desechos peligrosos",
+        "residuos industriales",
+        "sustancias toxicas",
+        "sustancias infecciosas",
+        "radiactivas",
+        "explosivos",
+        "polvora",
+        "material pirotecnico",
+        "fosforos",
+        "liquidos inflamables",
+        "combustibles",
+        "gasolina",
+        "etanol",
+        "semovientes",
+        "animales vivos",
+        "animales muertos",
+        "animal",
+        "carnes",
+        "despojos comestibles",
+        "productos de origen animal",
+        "objetos de arte",
+        "colecciones",
+        "antiguedades",
+        "perlas",
+        "piedras preciosas",
+        "metales preciosos",
+        "oro",
+        "plata",
+        "diamantes",
+        "legumbres",
+        "hortalizas",
+        "plantas",
+        "raices",
+        "tuberculos alimenticios",
+        "pescados",
+        "crustaceos",
+        "moluscos",
+        "invertebrados acuaticos",
+        "armas",
+        "municiones",
+        "aceites crudos de petroleo",
+        "minerales bituminosos",
+        "alquitranes",
+        "betunes",
+        "asfaltos",
+        "rocas asfalticas",
+        "vaselina",
+        "parafina",
+        "ceras minerales",
+        "navegacion aerea",
+        "navegacion espacial",
+        "navegacion maritima",
+        "navegacion fluvial",
+        "energia electrica",
+        "gas de hulla",
+    ]
+}
 
-def es_mercancia_valida(tipo_mercancia: str) -> str:
+
+def es_mercancia_valida(tipo_mercancia: str) -> bool | str:
     """
     Valida si un tipo de mercancía o servicio es transportable por Botero Soto.
     El modelo debe analizar la mercancía y determinar si pertenece a una de las categorías prohibidas.
@@ -92,7 +154,13 @@ def es_mercancia_valida(tipo_mercancia: str) -> str:
     if "ultima milla" in normalized_mercancia:
         return PROMPT_SERVICIO_NO_PRESTADO_ULTIMA_MILLA
 
-    return PROMPT_MERCANCIA_NO_TRANSPORTADA.format(tipo_mercancia=tipo_mercancia)
+    for keyword in FORBIDDEN_GOODS_KEYWORDS:
+        if keyword in normalized_mercancia:
+            return PROMPT_MERCANCIA_NO_TRANSPORTADA.format(
+                tipo_mercancia=tipo_mercancia
+            )
+
+    return True
 
 
 def es_ciudad_valida(ciudad: str):
@@ -120,3 +188,4 @@ def es_solicitud_de_paqueteo(es_paqueteo: bool) -> bool:
     Se considera "paqueteo" el transporte de mercancía de bajo peso y volumen. Esto incluye solicitudes con peso inferior a una tonelada (ej. "300 kilos", "media tonelada") o que usen términos como "paquete pequeño".
     """
     return es_paqueteo
+
