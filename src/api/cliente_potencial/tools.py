@@ -1,5 +1,4 @@
 from typing import Optional
-from src.shared.enums import TipoDeServicio
 
 
 def buscar_nit(nit: str):
@@ -42,7 +41,6 @@ def informacion_esencial_obtenida(obtenida: bool):
 def obtener_informacion_adicional_cliente_potencial(
     nombre_legal: Optional[str] = None,
     correo: Optional[str] = None,
-    tipo_de_servicio: Optional[str] = None,
     detalles_mercancia: Optional[str] = None,
     peso_de_mercancia: Optional[str] = None,
     promedio_viajes_mensuales: Optional[int] = None,
@@ -54,6 +52,23 @@ def obtener_informacion_adicional_cliente_potencial(
     """
     # Return only provided values
     return {k: v for k, v in locals().items() if v is not None}
+
+
+def obtener_tipo_de_servicio(tipo_de_servicio: str):
+    """
+    Infiere y guarda el tipo de servicio que el cliente potencial necesita.
+    El modelo debe analizar el historial de la conversación y determinar el servicio más probable.
+
+    Posibles valores para `tipo_de_servicio`:
+    - TRANSPORTE_NACIONAL
+    - EXPORTACION
+    - IMPORTACION
+    - DISTRIBUCION
+    - ALMACENAMIENTO
+    - ITR (Recibo de Traslado de Intercambio)
+    - TRANSPORTE_ANDINO
+    """
+    return tipo_de_servicio
 
 
 def cliente_solicito_correo():

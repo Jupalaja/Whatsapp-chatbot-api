@@ -27,6 +27,7 @@ from .tools import (
     guardar_correo_cliente,
     buscar_nit as buscar_nit_tool,
     limpiar_datos_agente_comercial,
+    obtener_tipo_de_servicio,
 )
 from src.config import settings
 from src.shared.constants import GEMINI_MODEL
@@ -730,6 +731,7 @@ async def _workflow_awaiting_remaining_information(
         es_solicitud_de_paqueteo,
         obtener_ayuda_humana,
         cliente_solicito_correo,
+        obtener_tipo_de_servicio,
     ]
 
     (
@@ -846,6 +848,12 @@ async def _workflow_awaiting_remaining_information(
             "obtener_informacion_adicional_cliente_potencial"
         ]
         interaction_data["remaining_information"].update(collected_info)
+    
+    if "obtener_tipo_de_servicio" in tool_results:
+        tipo_de_servicio = tool_results["obtener_tipo_de_servicio"]
+        if "remaining_information" not in interaction_data:
+            interaction_data["remaining_information"] = {}
+        interaction_data["remaining_information"]["tipo_de_servicio"] = tipo_de_servicio
 
     if tool_results.get("informacion_esencial_obtenida"):
         return await _workflow_remaining_information_provided(
