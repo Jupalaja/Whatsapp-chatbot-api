@@ -144,15 +144,8 @@ async def process_webhook_event(
     Processes a single webhook event in the background.
     """
     session_id = None
-    if (
-        event.data.message
-        and event.data.message.messageContextInfo
-        and event.data.message.messageContextInfo.deviceListMetadata
-        and event.data.message.messageContextInfo.deviceListMetadata.senderKeyHash
-    ):
-        session_id = (
-            event.data.message.messageContextInfo.deviceListMetadata.senderKeyHash
-        )
+    if event.data.key and event.data.key.remoteJid:
+        session_id = event.data.key.remoteJid.split("@")[0]
 
     message_text = None
     if event.data.message:
@@ -175,9 +168,7 @@ async def process_webhook_event(
     ):
         logger.debug(f"Processing webhook for session_id: {session_id}")
 
-        phone_number = None
-        if event.data.key.remoteJid:
-            phone_number = event.data.key.remoteJid.split("@")[0]
+        phone_number = session_id
 
         if message_text.strip().upper() == "RESET":
             logger.debug(f"Received RESET command for session_id: {session_id}")
