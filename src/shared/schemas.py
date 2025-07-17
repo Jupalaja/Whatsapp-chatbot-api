@@ -55,7 +55,7 @@ class CategoriaPuntuacion(BaseModel):
     categoria: CategoriaClasificacionLiteral
     puntuacionDeConfianza: float
     razonamiento: str
-    indicadoresClave: List[str]
+    indicadoresClave: Optional[List[str]] = None
 
 
 class Clasificacion(BaseModel):

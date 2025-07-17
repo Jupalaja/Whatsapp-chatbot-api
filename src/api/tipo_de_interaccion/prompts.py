@@ -34,7 +34,7 @@ Analiza el mensaje del usuario y proporciona puntuaciones de confianza para TODA
     - **Asignación de rutas y horarios.**
     - **Registro y cumplimiento de vehículos.**
     - **Búsqueda de carga:** Conductores buscando carga disponible para sus vehículos.
-    - **Ejemplos de frases:** "Estoy en Barranquilla disponible, ¿tienen carguita?", "busco carga para mi camión", "tengo un camión disponible para viajar".
+    - **Ejemplos de frases:** "Estoy en Barranquilla disponible, ¿tienen carguita?", "busco carga para mi camión", "tengo un camión disponible para viajar", "¿hay viajes disponibles para Medellín?.
 
 4.  **PROVEEDOR_POTENCIAL** - Empresas o personas que ofrecen:
     - Productos para la venta a Botero Soto.

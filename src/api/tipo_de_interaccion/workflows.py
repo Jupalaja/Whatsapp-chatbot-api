@@ -68,10 +68,19 @@ async def workflow_tipo_de_interaccion(
     tool_call_name = None
 
     if response.function_calls:
-        # Extract classification if present; it's a non-terminating side-effect.
+        # Extract classification if present; it's a non-terminating side effect.
         for function_call in response.function_calls:
             if function_call.name == "clasificar_interaccion":
-                clasificacion = Clasificacion.model_validate(function_call.args)
+                try:
+                    clasificacion = Clasificacion.model_validate(function_call.args)
+                except Exception as e:
+                    logger.error(f"Error validating clasificacion: {e}", exc_info=True)
+                    assistant_message = InteractionMessage(
+                        role=InteractionType.MODEL,
+                        message=obtener_ayuda_humana(reason="Error de clasificación"),
+                        tool_calls=["obtener_ayuda_humana"],
+                    )
+                    return [assistant_message], None, "obtener_ayuda_humana"
                 break
 
         # Process other function calls that might generate a terminating response.
