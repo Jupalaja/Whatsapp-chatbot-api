@@ -3,7 +3,7 @@ from typing import Optional, Tuple
 from datetime import datetime
 
 import google.genai as genai
-from google.genai import types
+from google.genai import types, errors
 
 from .prompts import (
     CLIENTE_POTENCIAL_GATHER_INFO_SYSTEM_PROMPT,
@@ -45,7 +45,7 @@ from src.shared.prompts import (
     PROMPT_SERVICIO_NO_PRESTADO_MUDANZA,
     PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO,
 )
-from src.shared.utils.functions import get_response_text
+from src.shared.utils.functions import get_response_text, invoke_model_with_retries
 
 logger = logging.getLogger(__name__)
 
@@ -170,9 +170,21 @@ async def _execute_tool_calls_and_get_response(
         logger.info(
             f"--- Calling Gemini for tool execution/response (Turn {i + 1}/{max_turns}) ---"
         )
-        response = await client.aio.models.generate_content(
-            model=GEMINI_MODEL, contents=genai_history, config=config
-        )
+        try:
+            response = await invoke_model_with_retries(
+                client.aio.models.generate_content,
+                model=GEMINI_MODEL,
+                contents=genai_history,
+                config=config,
+            )
+        except errors.ServerError as e:
+            logger.error(f"Gemini API Server Error after retries: {e}", exc_info=True)
+            return (
+                obtener_ayuda_humana(reason=f"Error de API: {e}"),
+                {"obtener_ayuda_humana": True},
+                ["obtener_ayuda_humana"],
+                {},
+            )
 
         if not response.function_calls:
             logger.info(
@@ -256,10 +268,15 @@ async def _get_final_text_response(
         system_instruction=system_prompt,
         temperature=0.0,
     )
-    response = await client.aio.models.generate_content(
-        model=GEMINI_MODEL, contents=genai_history, config=config
-    )
-    return get_response_text(response)
+    try:
+        response = await invoke_model_with_retries(
+            client.aio.models.generate_content,
+            model=GEMINI_MODEL, contents=genai_history, config=config
+        )
+        return get_response_text(response)
+    except errors.ServerError as e:
+        logger.error(f"Gemini API Server Error after retries: {e}", exc_info=True)
+        return obtener_ayuda_humana(reason=f"Error de API: {e}")
 
 
 async def _clean_commercial_agent_data(
@@ -303,7 +320,8 @@ async def _clean_commercial_agent_data(
     )
     
     try:
-        response = await client.aio.models.generate_content(
+        response = await invoke_model_with_retries(
+            client.aio.models.generate_content,
             model=GEMINI_MODEL, 
             contents=[{"role": "user", "parts": [{"text": cleaning_prompt}]}], 
             config=config

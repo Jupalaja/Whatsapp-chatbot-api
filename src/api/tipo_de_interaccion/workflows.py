@@ -2,7 +2,7 @@ import logging
 from typing import Optional, Tuple
 
 import google.genai as genai
-from google.genai import types
+from google.genai import types, errors
 
 from .prompts import TIPO_DE_INTERACCION_SYSTEM_PROMPT
 from .tools import clasificar_interaccion
@@ -18,7 +18,7 @@ from src.shared.utils.validations import (
     es_solicitud_de_mudanza,
     es_solicitud_de_paqueteo,
 )
-from src.shared.utils.functions import get_response_text
+from src.shared.utils.functions import get_response_text, invoke_model_with_retries
 
 
 logger = logging.getLogger(__name__)
@@ -47,9 +47,20 @@ async def workflow_tipo_de_interaccion(
         automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
     )
 
-    response = await client.aio.models.generate_content(
-        model=model, contents=genai_history, config=config
-    )
+    try:
+        response = await invoke_model_with_retries(
+            client.aio.models.generate_content,
+            model=model, contents=genai_history, config=config
+        )
+    except errors.ServerError as e:
+        logger.error(f"Gemini API Server Error after retries: {e}", exc_info=True)
+        assistant_message = InteractionMessage(
+            role=InteractionType.MODEL,
+            message=obtener_ayuda_humana(reason=f"Error de API: {e}"),
+            tool_calls=["obtener_ayuda_humana"],
+        )
+        return [assistant_message], None, "obtener_ayuda_humana"
+
     if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
         try:
             parts_for_logging = []

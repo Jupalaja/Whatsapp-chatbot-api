@@ -12,7 +12,7 @@ from src.shared.prompts import CONTACTO_BASE_SYSTEM_PROMPT
 from src.shared.tools import obtener_ayuda_humana
 from src.shared.schemas import InteractionRequest, InteractionResponse, InteractionMessage
 from src.shared.utils.history import get_genai_history
-from src.shared.utils.functions import get_response_text
+from src.shared.utils.functions import get_response_text, invoke_model_with_retries
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -57,7 +57,8 @@ async def handle_interaction(
             ),
         )
 
-        response = await client.aio.models.generate_content(
+        response = await invoke_model_with_retries(
+            client.aio.models.generate_content,
             model=model, contents=genai_history, config=config
         )
 

@@ -1,8 +1,9 @@
 import logging
-from typing import Awaitable, Callable, Optional, Tuple
+from typing import Awaitable, Callable, Optional, Tuple, Any
+import asyncio
 
 import google.genai as genai
-from google.genai import types
+from google.genai import types, errors
 
 from src.services.google_sheets import GoogleSheetsService
 from src.shared.constants import (
@@ -17,6 +18,35 @@ from src.shared.tools import obtener_ayuda_humana
 from src.shared.utils.history import get_genai_history
 
 logger = logging.getLogger(__name__)
+
+
+async def invoke_model_with_retries(
+    generate_content_func: Callable[..., Awaitable[types.GenerateContentResponse]],
+    *args: Any,
+    **kwargs: Any,
+) -> types.GenerateContentResponse:
+    """
+    Invokes a Gemini model's generate_content method with retries for server-side errors.
+    """
+    max_retries: int = 2
+    initial_delay: float = 1.0
+    backoff_factor: float = 2.0
+    delay = initial_delay
+
+    for attempt in range(max_retries + 1):
+        try:
+            return await generate_content_func(*args, **kwargs)
+        except errors.ServerError as e:
+            logger.warning(
+                f"Server error on attempt {attempt + 1}/{max_retries + 1}: {e}. Retrying in {delay}s..."
+            )
+            if attempt < max_retries:
+                await asyncio.sleep(delay)
+                delay *= backoff_factor
+            else:
+                logger.error("All retries failed for model invocation.")
+                raise e
+    raise RuntimeError("This line should not be reachable.")  # For mypy
 
 
 def get_response_text(response: types.GenerateContentResponse) -> str:
@@ -78,12 +108,16 @@ async def summarize_user_request(user_message: str, client: genai.Client) -> str
     prompt = PROMPT_RESUMIDOR.format(user_message=user_message)
 
     try:
-        response = await client.aio.models.generate_content(
+        response = await invoke_model_with_retries(
+            client.aio.models.generate_content,
             model=GEMINI_MODEL,
             contents=prompt,
             config=types.GenerateContentConfig(temperature=0.0),
         )
         return get_response_text(response)
+    except errors.ServerError as e:
+        logger.error(f"Failed to summarize user request after retries: {e}", exc_info=True)
+        return user_message  # Fallback to original message on error
     except Exception as e:
         logger.error(f"Failed to summarize user request: {e}", exc_info=True)
         return user_message  # Fallback to original message on error
@@ -123,9 +157,20 @@ async def handle_conversation_finished(
         automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
     )
 
-    response = await client.aio.models.generate_content(
-        model=GEMINI_MODEL, contents=genai_history, config=autopilot_config
-    )
+    try:
+        response = await invoke_model_with_retries(
+            client.aio.models.generate_content,
+            model=GEMINI_MODEL, contents=genai_history, config=autopilot_config
+        )
+    except errors.ServerError as e:
+        logger.error(f"Gemini API Server Error after retries: {e}", exc_info=True)
+        assistant_message_text = obtener_ayuda_humana(reason=f"Error de API: {e}")
+        tool_call_name = "obtener_ayuda_humana"
+        next_state = GlobalState.HUMAN_ESCALATION
+        assistant_message = InteractionMessage(
+            role=InteractionType.MODEL, message=assistant_message_text
+        )
+        return [assistant_message], next_state, tool_call_name, interaction_data
 
     tool_call_name = None
     assistant_message_text = None

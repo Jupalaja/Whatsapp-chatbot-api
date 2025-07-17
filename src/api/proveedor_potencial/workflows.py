@@ -3,7 +3,7 @@ from typing import Optional, Tuple
 from datetime import datetime
 
 import google.genai as genai
-from google.genai import types
+from google.genai import types, errors
 
 from .prompts import (
     PROVEEDOR_POTENCIAL_SYSTEM_PROMPT,
@@ -18,7 +18,7 @@ from src.shared.schemas import InteractionMessage
 from src.shared.tools import obtener_ayuda_humana
 from src.shared.utils.history import get_genai_history
 from src.services.google_sheets import GoogleSheetsService
-from src.shared.utils.functions import get_response_text
+from src.shared.utils.functions import get_response_text, invoke_model_with_retries
 
 logger = logging.getLogger(__name__)
 
@@ -80,10 +80,21 @@ async def handle_in_progress_proveedor_potencial(
         temperature=0.0,
         automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
     )
-
-    response = await client.aio.models.generate_content(
-        model=GEMINI_MODEL, contents=genai_history, config=config
-    )
+    
+    try:
+        response = await invoke_model_with_retries(
+            client.aio.models.generate_content,
+            model=GEMINI_MODEL, contents=genai_history, config=config
+        )
+    except errors.ServerError as e:
+        logger.error(f"Gemini API Server Error after retries: {e}", exc_info=True)
+        assistant_message_text = obtener_ayuda_humana(reason=f"Error de API: {e}")
+        tool_call_name = "obtener_ayuda_humana"
+        next_state = ProveedorPotencialState.HUMAN_ESCALATION
+        assistant_message = InteractionMessage(
+            role=InteractionType.MODEL, message=assistant_message_text
+        )
+        return [assistant_message], next_state, tool_call_name, interaction_data
 
     assistant_message = None
     tool_call_name = None
