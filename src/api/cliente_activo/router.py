@@ -43,8 +43,8 @@ async def handle(
 
     interaction = await db.get(models.Interaction, interaction_request.sessionId)
 
-    history_messages = []
-    current_state = ClienteActivoState.AWAITING_RESOLUTION
+    history_messages: list[InteractionMessage] = []
+    current_state = ClienteActivoState.AWAITING_NIT
     interaction_data: Optional[dict] = None
     if interaction:
         history_messages = [
