@@ -24,7 +24,10 @@ from src.api.candidato_a_empleo.state import CandidatoAEmpleoState
 from src.api.transportista.state import TransportistaState
 from src.database import models
 from src.services.google_sheets import GoogleSheetsService
-from src.shared.constants import CLASSIFICATION_THRESHOLD
+from src.shared.constants import (
+    CLASSIFICATION_THRESHOLD,
+    TIPO_DE_INTERACCION_MESSAGES_UNTIL_HUMAN,
+)
 from src.shared.state import GlobalState
 from src.shared.tools import obtener_ayuda_humana
 
@@ -83,6 +86,43 @@ async def _chat_router_logic(
             sheets_service=sheets_service,
             db=db,
             history_messages=history_messages,
+        )
+
+    if user_message_count >= TIPO_DE_INTERACCION_MESSAGES_UNTIL_HUMAN:
+        logger.warning(
+            f"User with sessionId {session_id} has sent more than {TIPO_DE_INTERACCION_MESSAGES_UNTIL_HUMAN} messages without being classified. Activating human help tool."
+        )
+        assistant_message = InteractionMessage(
+            role=InteractionType.MODEL,
+            message=obtener_ayuda_humana(),
+        )
+        history_messages.append(assistant_message)
+
+        if not interaction:
+            interaction = models.Interaction(
+                session_id=session_id,
+                messages=[],
+                user_data=interaction_request.userData,
+            )
+            db.add(interaction)
+        elif interaction_request.userData:
+            interaction.user_data = interaction_request.userData
+
+        interaction.messages = [msg.model_dump(mode="json") for msg in history_messages]
+        interaction.state = GlobalState.HUMAN_ESCALATION.value
+        if interaction.interaction_data is None:
+            interaction.interaction_data = {}
+        interaction.interaction_data["classifiedAs"] = CategoriaClasificacion.OTRO.value
+        flag_modified(interaction, "interaction_data")
+
+        await db.commit()
+
+        return InteractionResponse(
+            sessionId=session_id,
+            messages=[assistant_message],
+            toolCall="obtener_ayuda_humana",
+            state=interaction.state,
+            classifiedAs=CategoriaClasificacion.OTRO,
         )
 
     try:

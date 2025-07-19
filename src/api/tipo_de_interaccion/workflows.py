@@ -4,7 +4,10 @@ from typing import Optional, Tuple
 import google.genai as genai
 from google.genai import types, errors
 
-from .prompts import TIPO_DE_INTERACCION_SYSTEM_PROMPT
+from .prompts import (
+    TIPO_DE_INTERACCION_SYSTEM_PROMPT,
+    TIPO_DE_INTERACCION_AUTOPILOT_SYSTEM_PROMPT,
+)
 from .tools import clasificar_interaccion
 
 from src.shared.enums import InteractionType
@@ -142,7 +145,57 @@ async def workflow_tipo_de_interaccion(
             )
 
     if not assistant_message:
-        return [], clasificacion, None
+        # If no text response and no terminating tool, use autopilot to get more info.
+        logger.info(
+            "No text response from model. Using autopilot to get more information."
+        )
+
+        autopilot_config = types.GenerateContentConfig(
+            tools=[obtener_ayuda_humana],
+            system_instruction=TIPO_DE_INTERACCION_AUTOPILOT_SYSTEM_PROMPT,
+            temperature=0.0,
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+        )
+        try:
+            autopilot_response = await invoke_model_with_retries(
+                client.aio.models.generate_content,
+                model=model,
+                contents=genai_history,
+                config=autopilot_config,
+            )
+
+            if (
+                autopilot_response.function_calls
+                and autopilot_response.function_calls[0].name == "obtener_ayuda_humana"
+            ):
+                tool_call_name = "obtener_ayuda_humana"
+                assistant_message_text = obtener_ayuda_humana()
+            else:
+                assistant_message_text = get_response_text(autopilot_response)
+
+            if not assistant_message_text:
+                logger.warning(
+                    "Autopilot also returned no text. Escalating to human."
+                )
+                assistant_message_text = obtener_ayuda_humana()
+                tool_call_name = "obtener_ayuda_humana"
+
+            assistant_message = InteractionMessage(
+                role=InteractionType.MODEL,
+                message=assistant_message_text,
+                tool_calls=[tool_call_name] if tool_call_name else None,
+            )
+
+        except errors.ServerError as e:
+            logger.error(
+                f"Gemini API Server Error during autopilot call: {e}", exc_info=True
+            )
+            assistant_message = InteractionMessage(
+                role=InteractionType.MODEL,
+                message=obtener_ayuda_humana(reason=f"Error de API: {e}"),
+                tool_calls=["obtener_ayuda_humana"],
+            )
+            tool_call_name = "obtener_ayuda_humana"
 
     # Determine tool_call_name if not already set by a terminating tool.
     if not tool_call_name and response.function_calls:
