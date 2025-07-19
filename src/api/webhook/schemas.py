@@ -45,6 +45,7 @@ class WebhookData(BaseModel):
     key: WebhookKey
     message: Optional[WebhookMessage] = None
     pushName: Optional[str] = None
+    source: Optional[str] = None
 
 
 class WebhookEvent(BaseModel):

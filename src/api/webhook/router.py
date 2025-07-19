@@ -7,6 +7,7 @@ from fastapi import APIRouter, Request, BackgroundTasks, HTTPException
 from pydantic import ValidationError
 import google.genai as genai
 import httpx
+from sqlalchemy.orm.attributes import flag_modified
 
 from src.config import settings
 from src.api.chat_router.router import _chat_router_logic
@@ -16,10 +17,33 @@ from src.shared.enums import InteractionType
 from src.shared.schemas import InteractionMessage, InteractionRequest
 from src.shared.messages import MESSAGE_NON_TEXT_MESSAGES_NOT_ACCEPTED
 from src.services.google_sheets import GoogleSheetsService
+from src.shared.messages import (
+    SPECIAL_LIST_TITLE,
+    SPECIAL_LIST_DESCRIPTION,
+    SPECIAL_LIST_FIRST_OPTION,
+    SPECIAL_LIST_SECOND_OPTION,
+    SPECIAL_LIST_THIRD_OPTION,
+    SPECIAL_LIST_FOURTH_OPTION,
+    SPECIAL_LIST_FIFTH_OPTION,
+    SPECIAL_LIST_SIXTH_OPTION,
+    WHATSAPP_WEB_INSTRUCTIONS_MESSAGE,
+)
+
 from .schemas import WebhookEvent, WebhookMessage
+
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+TEXT_LIST_OPTIONS = {
+    "1": SPECIAL_LIST_FIRST_OPTION,
+    "2": SPECIAL_LIST_SECOND_OPTION,
+    "3": SPECIAL_LIST_THIRD_OPTION,
+    "4": SPECIAL_LIST_FOURTH_OPTION,
+    "5": SPECIAL_LIST_FIFTH_OPTION,
+    "6": SPECIAL_LIST_SIXTH_OPTION,
+}
 
 
 def detect_non_text_message(message: Optional[WebhookMessage]) -> bool:
@@ -83,6 +107,37 @@ async def send_whatsapp_message(phone_number: str, message: str):
             )
 
 
+async def send_whatsapp_text_list_message(phone_number: str):
+    """
+    Sends a text-based list message for WhatsApp Web users.
+    """
+    if not all(
+        [
+            settings.WHATSAPP_SERVER_URL,
+            settings.WHATSAPP_SERVER_API_KEY,
+            settings.WHATSAPP_SERVER_INSTANCE_NAME,
+        ]
+    ):
+        logger.warning(
+            "WhatsApp server settings are not configured. Skipping message sending."
+        )
+        return
+
+    message = (
+        f"{SPECIAL_LIST_TITLE}\n"
+        f"{SPECIAL_LIST_DESCRIPTION}\n\n"
+        f"*1*. {SPECIAL_LIST_FIRST_OPTION}\n"
+        f"*2*. {SPECIAL_LIST_SECOND_OPTION}\n"
+        f"*3*. {SPECIAL_LIST_THIRD_OPTION}\n"
+        f"*4*. {SPECIAL_LIST_FOURTH_OPTION}\n"
+        f"*5*. {SPECIAL_LIST_FIFTH_OPTION}\n"
+        f"*6*. {SPECIAL_LIST_SIXTH_OPTION}\n"
+        f"{WHATSAPP_WEB_INSTRUCTIONS_MESSAGE}"
+    )
+    await send_whatsapp_message(phone_number, message)
+    logger.debug(f"Successfully sent WhatsApp text list message to {phone_number}.")
+
+
 async def send_whatsapp_list_message(phone_number: str):
     """
     Sends a list message to a phone number using the WhatsApp API.
@@ -103,33 +158,33 @@ async def send_whatsapp_list_message(phone_number: str):
     headers = {"apikey": settings.WHATSAPP_SERVER_API_KEY}
     payload = {
         "number": phone_number,
-        "title": "Gracias por comunicarte con Botero Soto",
-        "description": "Queremos identificar rápidamente tu solicitud, por favor selecciona entre una de las siguientes opciones👇",
+        "title": f"{SPECIAL_LIST_TITLE}",
+        "description": f"{SPECIAL_LIST_DESCRIPTION}",
         "buttonText": "Haz click aquí",
         "footerText": "",
         "sections": [
             {
                 "title": "",
                 "rows": [
-                    {"title": "Quiero realizar una cotización", "rowId": "rowId 001"},
+                    {"title": f"{SPECIAL_LIST_FIRST_OPTION}", "rowId": "rowId 001"},
                     {
-                        "title": "Quiero consultar dónde está mi vehículo",
+                        "title": f"{SPECIAL_LIST_SECOND_OPTION}",
                         "rowId": "rowId 002",
                     },
                     {
-                        "title": "Quiero saber si están contratando conductores en este momento",
+                        "title": f"{SPECIAL_LIST_THIRD_OPTION}",
                         "rowId": "rowId 003",
                     },
                     {
-                        "title": "Trabajé allí, quiero solicitar un certificado laboral",
+                        "title": f"{SPECIAL_LIST_FOURTH_OPTION}",
                         "rowId": "rowId 004",
                     },
                     {
-                        "title": "¿A quién puedo consultar para ofrecer un producto para la venta?",
+                        "title": f"{SPECIAL_LIST_FIFTH_OPTION}",
                         "rowId": "rowId 005",
                     },
                     {
-                        "title": "Quiero consultar sobre la liquidación de un manifiesto",
+                        "title": f"{SPECIAL_LIST_SIXTH_OPTION}",
                         "rowId": "rowId 006",
                     },
                 ],
@@ -204,13 +259,23 @@ async def process_webhook_event(
         )
         return
 
-    # Process text messages
-    logger.debug(f"Processing webhook for session_id: {session_id}")
+    async with AsyncSessionFactory() as db:
+        interaction = await db.get(models.Interaction, session_id)
 
-    if message_text.strip().upper() == "RESET":
-        logger.debug(f"Received RESET command for session_id: {session_id}")
-        async with AsyncSessionFactory() as db:
-            interaction = await db.get(models.Interaction, session_id)
+        # Handle numeric input if a text list was previously sent to a web client
+        if interaction and interaction.interaction_data and interaction.interaction_data.get("text_list_sent_to_web"):
+            if message_text.strip() in TEXT_LIST_OPTIONS:
+                logger.debug(f"Mapping numeric input '{message_text.strip()}' for session {session_id}")
+                message_text = TEXT_LIST_OPTIONS[message_text.strip()]
+                interaction.interaction_data["text_list_sent_to_web"] = False
+                flag_modified(interaction, "interaction_data")
+                await db.commit()
+
+        # Process text messages
+        logger.debug(f"Processing webhook for session_id: {session_id}")
+
+        if message_text.strip().upper() == "RESET":
+            logger.debug(f"Received RESET command for session_id: {session_id}")
             if interaction:
                 # Generate new session_id for the deleted conversation
                 random_uuid = str(uuid.uuid4())[:8]
@@ -227,39 +292,50 @@ async def process_webhook_event(
                 logger.debug(
                     f"No interaction found for session_id: {session_id}, nothing to reset."
                 )
+            if phone_number:
+                await send_whatsapp_message(phone_number, "El chat ha sido reiniciado")
+            return
+
+        user_data = {}
         if phone_number:
-            await send_whatsapp_message(phone_number, "El chat ha sido reiniciado")
-        return
+            user_data["phoneNumber"] = phone_number
+        if event.data.pushName:
+            user_data["tagName"] = event.data.pushName
 
-    user_data = {}
-    if phone_number:
-        user_data["phoneNumber"] = phone_number
-    if event.data.pushName:
-        user_data["tagName"] = event.data.pushName
-
-    interaction_message = InteractionMessage(
-        role=InteractionType.USER, message=message_text
-    )
-    interaction_request = InteractionRequest(
-        sessionId=session_id, message=interaction_message, userData=user_data
-    )
-    try:
-        # We need a new DB session for the background task
-        async with AsyncSessionFactory() as db:
+        interaction_message = InteractionMessage(
+            role=InteractionType.USER, message=message_text
+        )
+        interaction_request = InteractionRequest(
+            sessionId=session_id, message=interaction_message, userData=user_data
+        )
+        try:
+            # We use the existing 'db' session for the logic call
             response = await _chat_router_logic(
                 interaction_request, client, sheets_service, db
             )
             if phone_number:
                 if response.toolCall == "send_special_list_message":
-                    await send_whatsapp_list_message(phone_number)
+                    if event.data.source == "web":
+                        await send_whatsapp_text_list_message(phone_number)
+                        # The interaction is updated inside _chat_router_logic, so we fetch it again
+                        interaction_after_logic = await db.get(models.Interaction, session_id)
+                        if interaction_after_logic:
+                            if interaction_after_logic.interaction_data is None:
+                                interaction_after_logic.interaction_data = {}
+                            interaction_after_logic.interaction_data["text_list_sent_to_web"] = True
+                            flag_modified(interaction_after_logic, "interaction_data")
+                            await db.commit()
+                            logger.debug(f"Set text_list_sent_to_web flag for session {session_id}")
+                    else:
+                        await send_whatsapp_list_message(phone_number)
                 elif response.messages:
                     for msg in response.messages:
                         await send_whatsapp_message(phone_number, msg.message)
-    except Exception as e:
-        logger.error(
-            f"Error processing webhook event for session {session_id}: {e}",
-            exc_info=True,
-        )
+        except Exception as e:
+            logger.error(
+                f"Error processing webhook event for session {session_id}: {e}",
+                exc_info=True,
+            )
 
 
 @router.post(f"/webhook/{settings.WEBHOOK_PATH}", status_code=200)
