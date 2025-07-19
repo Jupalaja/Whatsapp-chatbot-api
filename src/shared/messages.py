@@ -1,0 +1,1 @@
+MESSAGE_NON_TEXT_MESSAGES_NOT_ACCEPTED = "Por ahora, sólo recibo mensajes de texto, por favor envía todas tus consultas mediante mensaje de texto"

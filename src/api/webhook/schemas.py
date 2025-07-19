@@ -14,10 +14,25 @@ class ListResponseMessage(BaseModel):
     title: str
 
 
+class AudioMessage(BaseModel):
+    pass
+
+
+class ImageMessage(BaseModel):
+    pass
+
+
+class videoMessage(BaseModel):
+    pass
+
+
 class WebhookMessage(BaseModel):
     conversation: Optional[str] = None
     messageContextInfo: Optional[WebhookMessageContextInfo] = None
     listResponseMessage: Optional[ListResponseMessage] = None
+    audioMessage: Optional[AudioMessage] = None
+    imageMessage: Optional[ImageMessage] = None
+    videoMessage: Optional[videoMessage] = None
 
 
 class WebhookKey(BaseModel):

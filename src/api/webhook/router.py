@@ -1,6 +1,7 @@
 import logging
 import json
 import uuid
+from typing import Optional
 
 from fastapi import APIRouter, Request, BackgroundTasks, HTTPException
 from pydantic import ValidationError
@@ -13,11 +14,28 @@ from src.database.db import AsyncSessionFactory
 from src.database import models
 from src.shared.enums import InteractionType
 from src.shared.schemas import InteractionMessage, InteractionRequest
+from src.shared.messages import MESSAGE_NON_TEXT_MESSAGES_NOT_ACCEPTED
 from src.services.google_sheets import GoogleSheetsService
-from .schemas import WebhookEvent
+from .schemas import WebhookEvent, WebhookMessage
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def detect_non_text_message(message: Optional[WebhookMessage]) -> bool:
+    """
+    Detects if the message is a non-text message (e.g., audio, image, video).
+    A message is considered non-text if it exists but does not contain
+    a 'conversation' or 'listResponseMessage' field, which are used for text.
+    """
+    if not message:
+        # No message object, so not a non-text message we're concerned with.
+        return False
+
+    is_text_based = (
+        message.conversation is not None or message.listResponseMessage is not None
+    )
+    return not is_text_based
 
 
 async def send_whatsapp_message(phone_number: str, message: str):
@@ -147,6 +165,29 @@ async def process_webhook_event(
     if event.data.key and event.data.key.remoteJid:
         session_id = event.data.key.remoteJid.split("@")[0]
 
+    from_me = event.data.key.fromMe
+    event_type = event.event
+
+    # Basic filtering for events to process
+    if not (event_type == "messages.upsert" and not from_me and session_id):
+        has_message = bool(event.data.message)
+        logger.debug(
+            f"Skipping webhook event processing. Details: event_type='{event_type}', from_me={from_me}, has_session_id={bool(session_id)}, has_message={has_message}"
+        )
+        return
+
+    phone_number = session_id
+
+    # Handle non-text messages
+    if detect_non_text_message(event.data.message):
+        logger.debug(
+            f"Detected non-text message for session_id: {session_id}. Sending reply and stopping."
+        )
+        if phone_number:
+            await send_whatsapp_message(phone_number, MESSAGE_NON_TEXT_MESSAGES_NOT_ACCEPTED)
+        return
+
+    # Extract text from message
     message_text = None
     if event.data.message:
         if event.data.message.conversation:
@@ -157,73 +198,67 @@ async def process_webhook_event(
         ):
             message_text = event.data.message.listResponseMessage.title
 
-    from_me = event.data.key.fromMe
-    event_type = event.event
-
-    if (
-        event_type == "messages.upsert"
-        and not from_me
-        and session_id
-        and message_text
-    ):
-        logger.debug(f"Processing webhook for session_id: {session_id}")
-
-        phone_number = session_id
-
-        if message_text.strip().upper() == "RESET":
-            logger.debug(f"Received RESET command for session_id: {session_id}")
-            async with AsyncSessionFactory() as db:
-                interaction = await db.get(models.Interaction, session_id)
-                if interaction:
-                    # Generate new session_id for the deleted conversation
-                    random_uuid = str(uuid.uuid4())[:8]
-                    new_session_id = f"DELETED-{session_id}-{random_uuid}"
-                    
-                    # Update the session_id and mark as deleted
-                    interaction.session_id = new_session_id
-                    interaction.is_deleted = True
-                    await db.commit()
-                    logger.debug(f"Soft deleted interaction for session_id: {session_id}, new session_id: {new_session_id}")
-                else:
-                    logger.debug(
-                        f"No interaction found for session_id: {session_id}, nothing to reset."
-                    )
-            if phone_number:
-                await send_whatsapp_message(phone_number, "El chat ha sido reiniciado")
-            return
-
-        user_data = {}
-        if phone_number:
-            user_data["phoneNumber"] = phone_number
-        if event.data.pushName:
-            user_data["tagName"] = event.data.pushName
-
-        interaction_message = InteractionMessage(
-            role=InteractionType.USER, message=message_text
-        )
-        interaction_request = InteractionRequest(
-            sessionId=session_id, message=interaction_message, userData=user_data
-        )
-        try:
-            # We need a new DB session for the background task
-            async with AsyncSessionFactory() as db:
-                response = await _chat_router_logic(
-                    interaction_request, client, sheets_service, db
-                )
-                if phone_number:
-                    if response.toolCall == "send_special_list_message":
-                        await send_whatsapp_list_message(phone_number)
-                    elif response.messages:
-                        for msg in response.messages:
-                            await send_whatsapp_message(phone_number, msg.message)
-        except Exception as e:
-            logger.error(
-                f"Error processing webhook event for session {session_id}: {e}",
-                exc_info=True,
-            )
-    else:
+    if not message_text:
         logger.debug(
-            f"Skipping webhook event processing. Details: event_type='{event_type}', from_me={from_me}, has_session_id={bool(session_id)}, has_message_text={bool(message_text)}"
+            f"Skipping webhook event with no text content for session_id: {session_id}"
+        )
+        return
+
+    # Process text messages
+    logger.debug(f"Processing webhook for session_id: {session_id}")
+
+    if message_text.strip().upper() == "RESET":
+        logger.debug(f"Received RESET command for session_id: {session_id}")
+        async with AsyncSessionFactory() as db:
+            interaction = await db.get(models.Interaction, session_id)
+            if interaction:
+                # Generate new session_id for the deleted conversation
+                random_uuid = str(uuid.uuid4())[:8]
+                new_session_id = f"DELETED-{session_id}-{random_uuid}"
+
+                # Update the session_id and mark as deleted
+                interaction.session_id = new_session_id
+                interaction.is_deleted = True
+                await db.commit()
+                logger.debug(
+                    f"Soft deleted interaction for session_id: {session_id}, new session_id: {new_session_id}"
+                )
+            else:
+                logger.debug(
+                    f"No interaction found for session_id: {session_id}, nothing to reset."
+                )
+        if phone_number:
+            await send_whatsapp_message(phone_number, "El chat ha sido reiniciado")
+        return
+
+    user_data = {}
+    if phone_number:
+        user_data["phoneNumber"] = phone_number
+    if event.data.pushName:
+        user_data["tagName"] = event.data.pushName
+
+    interaction_message = InteractionMessage(
+        role=InteractionType.USER, message=message_text
+    )
+    interaction_request = InteractionRequest(
+        sessionId=session_id, message=interaction_message, userData=user_data
+    )
+    try:
+        # We need a new DB session for the background task
+        async with AsyncSessionFactory() as db:
+            response = await _chat_router_logic(
+                interaction_request, client, sheets_service, db
+            )
+            if phone_number:
+                if response.toolCall == "send_special_list_message":
+                    await send_whatsapp_list_message(phone_number)
+                elif response.messages:
+                    for msg in response.messages:
+                        await send_whatsapp_message(phone_number, msg.message)
+    except Exception as e:
+        logger.error(
+            f"Error processing webhook event for session {session_id}: {e}",
+            exc_info=True,
         )
 
 
