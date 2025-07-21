@@ -82,45 +82,33 @@ def guardar_correo_cliente(email: str):
 
 
 def limpiar_datos_agente_comercial(
-    responsable_comercial: str,
-    email: str,
-    telefono: str
+    agente_valido: bool,
+    nombre_formateado: Optional[str] = None,
+    email_valido: Optional[str] = None,
+    telefono_valido: Optional[str] = None,
+    razon: Optional[str] = None,
 ) -> dict:
     """
     Limpia y valida los datos del agente comercial obtenidos de Google Sheets.
-    
-    El modelo debe analizar los datos y determinar:
-    1. Si representan un agente comercial válido
-    2. Si el nombre necesita ser formateado correctamente
-    3. Si los datos de contacto son válidos
-    
+
+    El modelo debe analizar los datos de entrada y llamar a esta función con los resultados.
+
+    Análisis de datos:
+    - Indicadores de agente no válido: Nombres como "SIN RESPONSABLE", "N/A", "NO ASIGNADO". Emails o teléfonos como "N.A", "N/A", "NO DISPONIBLE".
+    - Formato de nombre: Si el nombre está en formato "APELLIDOS NOMBRES", formatearlo a "Nombres Apellidos" (capitalización de título).
+    - Validación de contacto: Verificar que el email y teléfono sean válidos. Si no, devolver un string vacío.
+
     Args:
-        responsable_comercial: Nombre del responsable comercial desde Google Sheets
-        email: Email del responsable comercial
-        telefono: Teléfono del responsable comercial
-        
-    Returns:
-        dict con las siguientes claves:
-        - "agente_valido": bool - True si hay un agente válido, False si no
-        - "nombre_formateado": str - Nombre formateado correctamente (solo si agente_valido=True)
-        - "email_valido": str - Email válido o cadena vacía
-        - "telefono_valido": str - Teléfono válido o cadena vacía
-        - "razon": str - Explicación de por qué no es válido (solo si agente_valido=False)
+        agente_valido: True si los datos representan un agente válido, False si no.
+        nombre_formateado: Nombre del agente con formato de título (e.g., "Paola Andrea Guerra Cardona"). Solo si es válido.
+        email_valido: Email válido del agente. Solo si es válido.
+        telefono_valido: Teléfono válido del agente. Solo si es válido.
+        razon: Explicación de por qué no es válido. Solo si `agente_valido` es False.
     """
-    # Análisis de datos - indicadores de agente no válido:
-    # - Nombres como "SIN RESPONSABLE", "N/A", "NO ASIGNADO", etc.
-    # - Emails como "N.A", "N/A", "NO DISPONIBLE", etc.
-    # - Teléfonos como "N.A", "N/A", "NO DISPONIBLE", etc.
-    
-    # Indicadores de datos válidos:
-    # - Nombre con formato de persona real (puede estar en formato "APELLIDOS NOMBRES")
-    # - Email con formato válido
-    # - Teléfono con formato válido
-    
     return {
-        "agente_valido": False,
-        "nombre_formateado": "",
-        "email_valido": "",
-        "telefono_valido": "",
-        "razon": "Datos insuficientes para determinar validez"
+        "agente_valido": agente_valido,
+        "nombre_formateado": nombre_formateado,
+        "email_valido": email_valido,
+        "telefono_valido": telefono_valido,
+        "razon": razon,
     }
