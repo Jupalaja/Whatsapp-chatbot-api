@@ -366,7 +366,7 @@ async def _workflow_remaining_information_provided(
     if estado == "PROSPECTO":
         assistant_message_text = PROMPT_ASIGNAR_AGENTE_COMERCIAL
         tool_call_name = "obtener_ayuda_humana"
-    elif estado in ["PERDIDO", "PERDIDO MÁS DE 2 AÑOS"]:
+    elif isinstance(estado, str):
         # Clean the commercial agent data before using it
         cleaned_data = await _clean_commercial_agent_data(search_result, client)
         
