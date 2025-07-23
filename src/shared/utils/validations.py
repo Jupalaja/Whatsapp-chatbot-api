@@ -165,7 +165,26 @@ def es_mercancia_valida(tipo_mercancia: str) -> bool | str:
 
 def es_ciudad_valida(ciudad: str):
     """
-    Válida si una ciudad es un origen/destino válido. Si no es válido, retorna un mensaje para el usuario.
+    Valida si una ciudad de origen o destino es válida según el área de cobertura de Botero Soto.
+    Si el modelo detecta que el usuario menciona una ciudad, debe llamar a esta función para validarla.
+    Si la ciudad es inválida, esta función generará el mensaje de rechazo apropiado.
+
+    **Instrucciones para el Modelo:**
+    1.  Analiza la ciudad mencionada por el usuario (ej: "Miami", "Santiago de Chile", "Bogotá").
+    2.  Llama a esta herramienta con el `ciudad` exacto que mencionó el usuario para que sea validada.
+    3.  Si la ciudad es válida, la herramienta devolverá `True` y podrás continuar la conversación.
+    4.  Si la ciudad es inválida (fuera del área de cobertura), la herramienta devolverá un mensaje de texto. **Debes usar este mensaje como tu respuesta final al usuario y terminar la conversación sobre esa solicitud.**
+
+    **Área de Cobertura de Botero Soto:**
+    - **Principal:** Colombia.
+    - **Internacional Terrestre:** Venezuela, Ecuador y Perú.
+    - **Exclusiones Importantes:**
+        - No se ofrece transporte aéreo ni marítimo.
+        - No hay servicio a ninguna ciudad fuera de los países mencionados.
+        - **Ejemplos de destinos NO válidos:** Estados Unidos (Miami, Nueva York), Europa (Madrid, París), Asia (Tokio), Chile, Argentina, Brasil, México, etc.
+
+    **Ciudades Colombianas Sin Cobertura:**
+    Existe una lista interna de ciudades y municipios en Colombia a los que no se presta servicio. Esta herramienta también valida contra esa lista. No necesitas conocerla, solo llama a la herramienta.
     """
     normalized_ciudad = _normalize_text(ciudad)
     if normalized_ciudad in BLACKLISTED_CITIES:
@@ -194,4 +213,3 @@ def es_solicitud_de_paqueteo(es_paqueteo: bool) -> bool:
     4.  Si el peso es de 1000 kg o más, o si no se menciona un peso y la descripción no sugiere paqueteo, **NO** llames a esta herramienta.
     """
     return es_paqueteo
-
