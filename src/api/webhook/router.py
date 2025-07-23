@@ -43,6 +43,12 @@ TEXT_LIST_OPTIONS = {
     "4": SPECIAL_LIST_FOURTH_OPTION,
     "5": SPECIAL_LIST_FIFTH_OPTION,
     "6": SPECIAL_LIST_SIXTH_OPTION,
+    "1️⃣": SPECIAL_LIST_FIRST_OPTION,
+    "2️⃣": SPECIAL_LIST_SECOND_OPTION,
+    "3️⃣": SPECIAL_LIST_THIRD_OPTION,
+    "4️⃣": SPECIAL_LIST_FOURTH_OPTION,
+    "5️⃣": SPECIAL_LIST_FIFTH_OPTION,
+    "6️⃣": SPECIAL_LIST_SIXTH_OPTION,
 }
 
 
@@ -126,13 +132,13 @@ async def send_whatsapp_text_list_message(phone_number: str):
     message = (
         f"{SPECIAL_LIST_TITLE}\n"
         f"{SPECIAL_LIST_DESCRIPTION}\n\n"
-        f"*1*. {SPECIAL_LIST_FIRST_OPTION}\n"
-        f"*2*. {SPECIAL_LIST_SECOND_OPTION}\n"
-        f"*3*. {SPECIAL_LIST_THIRD_OPTION}\n"
-        f"*4*. {SPECIAL_LIST_FOURTH_OPTION}\n"
-        f"*5*. {SPECIAL_LIST_FIFTH_OPTION}\n"
-        f"*6*. {SPECIAL_LIST_SIXTH_OPTION}\n"
-        f"{WHATSAPP_WEB_INSTRUCTIONS_MESSAGE}"
+        f"1️⃣. {SPECIAL_LIST_FIRST_OPTION}\n"
+        f"2️⃣. {SPECIAL_LIST_SECOND_OPTION}\n"
+        f"3️⃣. {SPECIAL_LIST_THIRD_OPTION}\n"
+        f"4️⃣. {SPECIAL_LIST_FOURTH_OPTION}\n"
+        f"5️⃣. {SPECIAL_LIST_FIFTH_OPTION}\n"
+        f"6️⃣. {SPECIAL_LIST_SIXTH_OPTION}\n"
+        f"\n{WHATSAPP_WEB_INSTRUCTIONS_MESSAGE}"
     )
     await send_whatsapp_message(phone_number, message)
     logger.debug(f"Successfully sent WhatsApp text list message to {phone_number}.")
