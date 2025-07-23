@@ -185,7 +185,13 @@ def es_solicitud_de_paqueteo(es_paqueteo: bool) -> bool:
     """
     Determina si la solicitud del cliente es para paquetes pequeños ("paqueteo").
     El modelo debe analizar la descripción del usuario y llamar a esta función con `es_paqueteo=True` si la solicitud es para "paqueteo".
-    Se considera "paqueteo" el transporte de mercancía de bajo peso y volumen. Esto incluye solicitudes con peso inferior a una tonelada (ej. "300 kilos", "media tonelada") o que usen términos como "paquete pequeño".
+    Se considera "paqueteo" el transporte de mercancía de bajo peso y volumen. Esto incluye cualquier solicitud con un peso explícitamente mencionado que sea inferior a 1000 kilogramos (1 tonelada).
+
+    **Instrucciones para el Modelo:**
+    1.  Analiza la descripción del usuario en busca de menciones de peso (ej: "30 kilos", "500 kg", "media tonelada").
+    2.  Si el peso mencionado es **menor a 1000 kg**, DEBES llamar a esta herramienta con `es_paqueteo=True`.
+    3.  También utiliza esta herramienta si el usuario usa términos como "paquete pequeño", "caja pequeña", etc.
+    4.  Si el peso es de 1000 kg o más, o si no se menciona un peso y la descripción no sugiere paqueteo, **NO** llames a esta herramienta.
     """
     return es_paqueteo
 
