@@ -54,6 +54,16 @@ async def _chat_router_logic(
         interaction.state = None
         interaction.interaction_data = {}
 
+    # Handle reclassification if needed
+    if interaction and interaction.state == GlobalState.AWAITING_RECLASSIFICATION.value:
+        logger.debug(f"Session {session_id} is awaiting reclassification. Resetting message history and state for new interaction.")
+        interaction.messages = []
+        interaction.state = None
+        if interaction.interaction_data:
+            interaction.interaction_data.pop("classifiedAs", None)
+            interaction.interaction_data.pop("special_list_sent", None)
+            interaction.interaction_data.pop("messages_after_finished_count", None)
+
     history_messages = []
     classified_as = None
 

@@ -14,7 +14,7 @@ from src.shared.enums import InteractionType
 from src.shared.prompts import AYUDA_HUMANA_PROMPT, PROMPT_RESUMIDOR
 from src.shared.schemas import InteractionMessage
 from src.shared.state import GlobalState
-from src.shared.tools import obtener_ayuda_humana
+from src.shared.tools import obtener_ayuda_humana, nueva_interaccion_requerida
 from src.shared.utils.history import get_genai_history
 
 logger = logging.getLogger(__name__)
@@ -124,15 +124,15 @@ async def summarize_user_request(user_message: str, client: genai.Client) -> str
 
 
 async def handle_conversation_finished(
-        session_id: str,
-        history_messages: list[InteractionMessage],
-        interaction_data: dict,
-        client: genai.Client,
-        autopilot_system_prompt: str,
+    session_id: str,
+    history_messages: list[InteractionMessage],
+    interaction_data: dict,
+    client: genai.Client,
+    autopilot_system_prompt: str,
 ) -> Tuple[list[InteractionMessage], GlobalState, Optional[str], dict]:
     """Handles interactions after the main conversation flow has finished."""
     messages_after_finished_count = (
-            interaction_data.get("messages_after_finished_count", 0) + 1
+        interaction_data.get("messages_after_finished_count", 0) + 1
     )
     interaction_data["messages_after_finished_count"] = messages_after_finished_count
 
@@ -151,7 +151,7 @@ async def handle_conversation_finished(
     genai_history = await get_genai_history(history_messages)
 
     autopilot_config = types.GenerateContentConfig(
-        tools=[obtener_ayuda_humana],
+        tools=[obtener_ayuda_humana, nueva_interaccion_requerida],
         system_instruction=autopilot_system_prompt,
         temperature=0.0,
         automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
@@ -160,7 +160,9 @@ async def handle_conversation_finished(
     try:
         response = await invoke_model_with_retries(
             client.aio.models.generate_content,
-            model=GEMINI_MODEL, contents=genai_history, config=autopilot_config
+            model=GEMINI_MODEL,
+            contents=genai_history,
+            config=autopilot_config,
         )
     except errors.ServerError as e:
         logger.error(f"Gemini API Server Error after retries: {e}", exc_info=True)
@@ -176,14 +178,21 @@ async def handle_conversation_finished(
     assistant_message_text = None
     next_state = GlobalState.CONVERSATION_FINISHED
 
-    if (
-            response.function_calls
-            and response.function_calls[0].name == "obtener_ayuda_humana"
-    ):
-        tool_call_name = "obtener_ayuda_humana"
-        assistant_message_text = obtener_ayuda_humana()
-        next_state = GlobalState.HUMAN_ESCALATION
-    else:
+    if response.function_calls:
+        fc_name = response.function_calls[0].name
+        if fc_name == "nueva_interaccion_requerida":
+            tool_call_name = "nueva_interaccion_requerida"
+            interaction_data.pop("classifiedAs", None)
+            interaction_data.pop("special_list_sent", None)
+            interaction_data["messages_after_finished_count"] = 0
+            next_state = GlobalState.AWAITING_RECLASSIFICATION
+            assistant_message_text = "Claro, ¿en qué más puedo ayudarte?"
+        elif fc_name == "obtener_ayuda_humana":
+            tool_call_name = "obtener_ayuda_humana"
+            assistant_message_text = obtener_ayuda_humana()
+            next_state = GlobalState.HUMAN_ESCALATION
+
+    if not assistant_message_text:
         assistant_message_text = get_response_text(response)
 
     if not assistant_message_text:
@@ -199,16 +208,16 @@ async def handle_conversation_finished(
 
 
 async def handle_in_progress_conversation(
-        history_messages: list[InteractionMessage],
-        current_state: any,
-        in_progress_state: any,
-        interaction_data: dict,
-        client: genai.Client,
-        sheets_service: Optional[GoogleSheetsService],
-        workflow_function: Callable[
-            [list[InteractionMessage], genai.Client, Optional[GoogleSheetsService], dict],
-            Awaitable[Tuple[list[InteractionMessage], any, Optional[str], dict]],
-        ],
+    history_messages: list[InteractionMessage],
+    current_state: any,
+    in_progress_state: any,
+    interaction_data: dict,
+    client: genai.Client,
+    sheets_service: Optional[GoogleSheetsService],
+    workflow_function: Callable[
+        [list[InteractionMessage], genai.Client, Optional[GoogleSheetsService], dict],
+        Awaitable[Tuple[list[InteractionMessage], any, Optional[str], dict]],
+    ],
 ) -> Tuple[list[InteractionMessage], any, Optional[str], dict]:
     """
     Handles the main, in-progress conversation states by dispatching to the
