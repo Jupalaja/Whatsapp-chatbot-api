@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
 import google.genai as genai
 
 from src.api.chat_router import router as chat_router
@@ -67,6 +68,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
+
+app.mount(f"/{settings.SECRET_PATH}/videos", StaticFiles(directory="src/media"), name="videos")
 
 app.include_router(chat_router.router, prefix="/api/v1", tags=["Chat Router"])
 app.include_router(webhook_router.router, prefix="/api/v1", tags=["Webhook"])

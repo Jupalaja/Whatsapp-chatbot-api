@@ -409,7 +409,7 @@ async def process_webhook_event(
             )
 
 
-@router.post(f"/webhook/{settings.WEBHOOK_PATH}", status_code=200)
+@router.post(f"/webhook/{settings.SECRET_PATH}", status_code=200)
 async def handle_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -417,7 +417,7 @@ async def handle_webhook(
     """
     Handles incoming webhooks from the Evolution API.
     """
-    logger.debug(f"Received webhook on path: /webhook/{settings.WEBHOOK_PATH}")
+    logger.debug(f"Received webhook on path: /webhook/{settings.SECRET_PATH}")
     client: genai.Client = request.app.state.genai_client
     sheets_service: GoogleSheetsService = request.app.state.sheets_service
 

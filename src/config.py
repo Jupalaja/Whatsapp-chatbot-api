@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     GOOGLE_API_KEY: Optional[str] = None
 
     # WhatsApp API
-    WEBHOOK_PATH: str
+    SECRET_PATH: str
     WHATSAPP_SERVER_URL: Optional[str] = None
     WHATSAPP_SERVER_API_KEY: Optional[str] = None
     WHATSAPP_SERVER_INSTANCE_NAME: Optional[str] = None
