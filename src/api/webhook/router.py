@@ -129,6 +129,67 @@ async def send_whatsapp_message(phone_number: str, message: str):
             )
 
 
+async def send_whatsapp_media_file(
+    phone_number: str,
+    media_type: str,
+    mime_type: str,
+    media_url: str,
+    file_name: str,
+    caption: Optional[str] = None,
+):
+    """
+    Sends a media file to a phone number using the WhatsApp API.
+    """
+    if not all(
+        [
+            settings.WHATSAPP_SERVER_URL,
+            settings.WHATSAPP_SERVER_API_KEY,
+            settings.WHATSAPP_SERVER_INSTANCE_NAME,
+        ]
+    ):
+        logger.warning(
+            "WhatsApp server settings are not configured. Skipping message sending."
+        )
+        return
+
+    url = f"{settings.WHATSAPP_SERVER_URL}/message/sendMedia/{settings.WHATSAPP_SERVER_INSTANCE_NAME}"
+    headers = {"apikey": settings.WHATSAPP_SERVER_API_KEY}
+    payload = {
+        "number": phone_number,
+        "mediatype": media_type,
+        "mimetype": mime_type,
+        "media": media_url,
+        "fileName": file_name,
+    }
+    if caption:
+        payload["caption"] = caption
+
+    async with httpx.AsyncClient() as client:
+        try:
+            res = await client.post(url, headers=headers, json=payload)
+            res.raise_for_status()
+            try:
+                response_data = res.json()
+                # Use caption in logs if present, otherwise fallback to text
+                log_message = response_data.get("message", {}).get(
+                    "caption", res.text
+                )
+            except json.JSONDecodeError:
+                log_message = res.text
+            logger.debug(
+                f"Successfully sent WhatsApp media file to {phone_number}. Response: {log_message}"
+            )
+        except httpx.HTTPStatusError as e:
+            logger.error(
+                f"Failed to send WhatsApp media file to {phone_number}. Status: {e.response.status_code}, Response: {e.response.text}"
+            )
+        except Exception as e:
+            logger.error(
+                f"An unexpected error occurred while sending WhatsApp media file to {phone_number}: {e}",
+                exc_info=True,
+            )
+
+
 async def send_whatsapp_text_list_message(phone_number: str):
     """
     Sends a text-based list message for WhatsApp Web users.
