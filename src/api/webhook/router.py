@@ -52,6 +52,21 @@ TEXT_LIST_OPTIONS = {
 }
 
 
+def calculate_delay(text):
+    min_chars, max_chars = 5, 300
+    min_delay, max_delay = 200, 2500
+
+    num_chars = len(text)
+
+    if num_chars <= min_chars:
+        return min_delay
+    elif num_chars >= max_chars:
+        return max_delay
+    else:
+        proportional_value = min_delay + ((num_chars - min_chars) / (max_chars - min_chars) * (max_delay - min_delay))
+        return int(proportional_value)
+
+
 def detect_non_text_message(message: Optional[WebhookMessage]) -> bool:
     """
     Detects if the message is a non-text message (e.g., audio, image, video).
@@ -86,7 +101,8 @@ async def send_whatsapp_message(phone_number: str, message: str):
 
     url = f"{settings.WHATSAPP_SERVER_URL}/message/sendText/{settings.WHATSAPP_SERVER_INSTANCE_NAME}"
     headers = {"apikey": settings.WHATSAPP_SERVER_API_KEY}
-    payload = {"number": phone_number, "text": message}
+    delay = calculate_delay(message)
+    payload = {"number": phone_number, "text": message, "delay": delay}
 
     async with httpx.AsyncClient() as client:
         try:
