@@ -1,7 +1,6 @@
 import logging
 import json
 import uuid
-import asyncio
 from typing import Optional
 
 from fastapi import APIRouter, Request, BackgroundTasks, HTTPException
@@ -69,55 +68,6 @@ def detect_non_text_message(message: Optional[WebhookMessage]) -> bool:
     return not is_text_based
 
 
-async def send_composing_presence(phone_number: str, message: str):
-    """
-    Sends a 'composing' presence to a phone number and waits for a calculated delay.
-    """
-    if not all(
-        [
-            settings.WHATSAPP_SERVER_URL,
-            settings.WHATSAPP_SERVER_API_KEY,
-            settings.WHATSAPP_SERVER_INSTANCE_NAME,
-        ]
-    ):
-        logger.warning(
-            "WhatsApp server settings are not configured. Skipping composing presence."
-        )
-        return
-
-    typing_delay_seconds = min(max(len(message) / 10, 0.5), 3)
-
-    # The presence duration in the API call should be slightly longer than our wait time
-    # to ensure it's visible until the message is sent.
-    presence_duration_ms = int(typing_delay_seconds * 1000)
-
-    url = f"{settings.WHATSAPP_SERVER_URL}/chat/sendPresence/{settings.WHATSAPP_SERVER_INSTANCE_NAME}"
-    headers = {"apikey": settings.WHATSAPP_SERVER_API_KEY}
-    payload = {
-        "presence": "composing",
-        "delay": presence_duration_ms,
-        "number": phone_number,
-    }
-
-    async with httpx.AsyncClient() as client:
-        try:
-            await client.post(url, headers=headers, json=payload)
-            logger.debug(
-                f"Sent 'composing' presence to {phone_number} for {typing_delay_seconds}s."
-            )
-        except httpx.HTTPStatusError as e:
-            logger.error(
-                f"Failed to send 'composing' presence to {phone_number}. Status: {e.response.status_code}, Response: {e.response.text}"
-            )
-        except Exception as e:
-            logger.error(
-                f"An unexpected error occurred while sending 'composing' presence to {phone_number}: {e}",
-                exc_info=True,
-            )
-
-    await asyncio.sleep(    typing_delay_seconds)
-
-
 async def send_whatsapp_message(phone_number: str, message: str):
     """
     Sends a message to a phone number using the WhatsApp API.
@@ -133,8 +83,6 @@ async def send_whatsapp_message(phone_number: str, message: str):
             "WhatsApp server settings are not configured. Skipping message sending."
         )
         return
-
-    await send_composing_presence(phone_number, message)
 
     url = f"{settings.WHATSAPP_SERVER_URL}/message/sendText/{settings.WHATSAPP_SERVER_INSTANCE_NAME}"
     headers = {"apikey": settings.WHATSAPP_SERVER_API_KEY}
@@ -211,19 +159,6 @@ async def send_whatsapp_list_message(phone_number: str):
             "WhatsApp server settings are not configured. Skipping message sending."
         )
         return
-
-    # Create a representative text for delay calculation
-    representative_text = (
-        f"{SPECIAL_LIST_TITLE}\n"
-        f"{SPECIAL_LIST_DESCRIPTION}\n"
-        f"{SPECIAL_LIST_FIRST_OPTION}\n"
-        f"{SPECIAL_LIST_SECOND_OPTION}\n"
-        f"{SPECIAL_LIST_THIRD_OPTION}\n"
-        f"{SPECIAL_LIST_FOURTH_OPTION}\n"
-        f"{SPECIAL_LIST_FIFTH_OPTION}\n"
-        f"{SPECIAL_LIST_SIXTH_OPTION}"
-    )
-    await send_composing_presence(phone_number, representative_text)
 
     url = f"{settings.WHATSAPP_SERVER_URL}/message/sendList/{settings.WHATSAPP_SERVER_INSTANCE_NAME}"
     headers = {"apikey": settings.WHATSAPP_SERVER_API_KEY}
