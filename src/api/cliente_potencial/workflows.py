@@ -46,7 +46,11 @@ from src.shared.prompts import (
     PROMPT_SERVICIO_NO_PRESTADO_MUDANZA,
     PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO,
 )
-from src.shared.utils.functions import get_response_text, invoke_model_with_retries
+from src.shared.utils.functions import (
+    get_response_text,
+    invoke_model_with_retries,
+    execute_tool_calls_and_get_response,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -137,125 +141,6 @@ async def _write_cliente_potencial_to_sheet(
 
     except Exception as e:
         logger.error(f"Failed to write to Google Sheet: {e}", exc_info=True)
-
-
-async def _execute_tool_calls_and_get_response(
-    history_messages: list[InteractionMessage],
-    client: genai.Client,
-    tools: list,
-    system_prompt: str,
-    max_turns: int = 10,
-) -> Tuple[Optional[str], dict, list[str], dict]:
-    """
-    Executes a multi-turn conversation with tool calling until a text response is received.
-    1.  Calls the model.
-    2.  If the model returns a text response, the loop terminates.
-    3.  If the model returns tool calls, they are executed, and their results are added to the history.
-    4.  The loop continues until a text response is given or max_turns is reached.
-    Returns the final text response, the results of all tools called, a list of tool call names, and tool arguments.
-    """
-    genai_history = await get_genai_history(history_messages)
-    config = types.GenerateContentConfig(
-        tools=tools,
-        system_instruction=system_prompt,
-        temperature=0.0,
-        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-    )
-
-    all_tool_results = {}
-    all_tool_call_names = []
-    all_tool_args_map = {}
-    response = None
-
-    for i in range(max_turns):
-        logger.info(
-            f"--- Calling Gemini for tool execution/response (Turn {i + 1}/{max_turns}) ---"
-        )
-        try:
-            response = await invoke_model_with_retries(
-                client.aio.models.generate_content,
-                model=GEMINI_MODEL,
-                contents=genai_history,
-                config=config,
-            )
-        except errors.ServerError as e:
-            logger.error(f"Gemini API Server Error after retries: {e}", exc_info=True)
-            return (
-                obtener_ayuda_humana(reason=f"Error de API: {e}"),
-                {"obtener_ayuda_humana": True},
-                ["obtener_ayuda_humana"],
-                {},
-            )
-
-        if not response.function_calls:
-            logger.info(
-                "--- No tool calls from Gemini. Returning direct text response. ---"
-            )
-            text_response = get_response_text(response)
-            return text_response, all_tool_results, all_tool_call_names, all_tool_args_map
-
-        logger.info(
-            f"--- Gemini returned {len(response.function_calls)} tool call(s). Executing them. ---"
-        )
-
-        # Add the model's turn (with function calls) to history before executing
-        genai_history.append(response.candidates[0].content)
-
-        function_response_parts = []
-
-        for function_call in response.function_calls:
-            tool_name = function_call.name
-            tool_args = dict(function_call.args) if function_call.args else {}
-            all_tool_args_map[tool_name] = tool_args
-            tool_function = next((t for t in tools if t.__name__ == tool_name), None)
-
-            if tool_function:
-                logger.info(f"Executing tool: {tool_name} with args: {tool_args}")
-                result = tool_function(**tool_args)
-                all_tool_results[tool_name] = result
-                if tool_name not in all_tool_call_names:
-                    all_tool_call_names.append(tool_name)
-                logger.info(f"Tool {tool_name} returned: {result}")
-
-                # The response must be a dict for from_function_response
-                response_content = result
-                if not isinstance(response_content, dict):
-                    response_content = {"content": result}
-
-                function_response_parts.append(
-                    types.Part.from_function_response(
-                        name=tool_name, response=response_content
-                    )
-                )
-            else:
-                logger.warning(f"Tool {tool_name} not found in available tools")
-
-        # Add the tool results to history for the next turn
-        if function_response_parts:
-            genai_history.append(
-                types.Content(role="tool", parts=function_response_parts)
-            )
-        else:
-            # If no tools were actually executed, break to avoid infinite loop
-            break
-
-    # If loop finishes due to max_turns, it means we are in a tool-call loop.
-    logger.warning(
-        f"Max tool call turns ({max_turns}) reached. Returning last response."
-    )
-    text_response = get_response_text(response) if response else ""
-
-    logger.info(
-        f"Final text response from loop: '{text_response[:100]}...'"
-        if len(text_response) > 100
-        else f"Final text response: '{text_response}'"
-    )
-    logger.info(f"All tool results: {all_tool_results}")
-    logger.info(f"All tool call names: {all_tool_call_names}")
-    logger.info(f"All tool args: {all_tool_args_map}")
-    logger.info("--- End of Gemini call ---")
-
-    return text_response, all_tool_results, all_tool_call_names, all_tool_args_map
 
 
 async def _get_final_text_response(
@@ -497,7 +382,7 @@ async def _workflow_awaiting_nit(
         tool_results,
         tool_call_names,
         tool_args_map,
-    ) = await _execute_tool_calls_and_get_response(
+    ) = await execute_tool_calls_and_get_response(
         history_messages, client, tools, CLIENTE_POTENCIAL_SYSTEM_PROMPT
     )
 
@@ -686,7 +571,7 @@ async def _workflow_awaiting_persona_natural_freight_info(
         tool_results,
         tool_call_names,
         _,
-    ) = await _execute_tool_calls_and_get_response(
+    ) = await execute_tool_calls_and_get_response(
         history_messages, client, tools, CLIENTE_POTENCIAL_SYSTEM_PROMPT
     )
 
@@ -739,7 +624,7 @@ async def _workflow_awaiting_remaining_information(
         tool_results,
         tool_call_names,
         _,
-    ) = await _execute_tool_calls_and_get_response(
+    ) = await execute_tool_calls_and_get_response(
         history_messages, client, tools, CLIENTE_POTENCIAL_GATHER_INFO_SYSTEM_PROMPT
     )
 
@@ -909,7 +794,7 @@ async def _workflow_customer_asked_for_email_data_sent(
         tool_results,
         tool_call_names,
         _,
-    ) = await _execute_tool_calls_and_get_response(
+    ) = await execute_tool_calls_and_get_response(
         history_messages, client, tools, PROMPT_GET_CUSTOMER_EMAIL_SYSTEM_PROMPT
     )
 
