@@ -411,6 +411,30 @@ async def process_webhook_event(
                             logger.debug(f"Set text_list_sent_to_web flag for session {session_id}")
                     else:
                         await send_whatsapp_list_message(phone_number)
+                elif response.toolCall == "send_video_message":
+                    interaction_after_logic = await db.get(
+                        models.Interaction, session_id
+                    )
+                    if (
+                        interaction_after_logic
+                        and interaction_after_logic.interaction_data
+                    ):
+                        video_info = interaction_after_logic.interaction_data.get(
+                            "video_to_send"
+                        )
+                        if video_info:
+                            video_file = video_info.get("video_file")
+                            caption = video_info.get("caption")
+                            if video_file:
+                                media_url = f"{settings.BUCKET_URL}/{video_file}"
+                                await send_whatsapp_media_file(
+                                    phone_number=phone_number,
+                                    media_type="video",
+                                    mime_type="video/mp4",
+                                    media_url=media_url,
+                                    file_name=video_file,
+                                    caption=caption,
+                                )
                 elif response.messages:
                     for msg in response.messages:
                         await send_whatsapp_message(phone_number, msg.message)

@@ -11,7 +11,13 @@ from .prompts import (
     PROMPT_ENTURNAMIENTOS,
 )
 from .state import TransportistaState
-from .tools import obtener_tipo_de_solicitud
+from .tools import (
+    obtener_tipo_de_solicitud,
+    enviar_video_registro_app,
+    enviar_video_actualizacion_datos_app,
+    enviar_video_enturno_app,
+    enviar_video_reporte_eventos_app,
+)
 from src.config import settings
 from src.shared.constants import GEMINI_MODEL
 from src.shared.enums import InteractionType, CategoriaTransportista
@@ -74,6 +80,10 @@ async def handle_in_progress_transportista(
     tools = [
         obtener_tipo_de_solicitud,
         obtener_ayuda_humana,
+        enviar_video_registro_app,
+        enviar_video_actualizacion_datos_app,
+        enviar_video_enturno_app,
+        enviar_video_reporte_eventos_app,
     ]
 
     config = types.GenerateContentConfig(
@@ -106,7 +116,19 @@ async def handle_in_progress_transportista(
         function_call = response.function_calls[0]
         tool_call_name = function_call.name
 
-        if function_call.name == "obtener_tipo_de_solicitud":
+        video_tool_map = {
+            "enviar_video_registro_app": enviar_video_registro_app,
+            "enviar_video_actualizacion_datos_app": enviar_video_actualizacion_datos_app,
+            "enviar_video_enturno_app": enviar_video_enturno_app,
+            "enviar_video_reporte_eventos_app": enviar_video_reporte_eventos_app,
+        }
+
+        if function_call.name in video_tool_map:
+            video_info = video_tool_map[function_call.name]()
+            interaction_data["video_to_send"] = video_info
+            tool_call_name = "send_video_message"
+            next_state = TransportistaState.CONVERSATION_FINISHED
+        elif function_call.name == "obtener_tipo_de_solicitud":
             categoria = function_call.args.get("categoria")
             interaction_data["tipo_de_solicitud"] = categoria
 
@@ -136,7 +158,7 @@ async def handle_in_progress_transportista(
             )
             next_state = TransportistaState.HUMAN_ESCALATION
 
-    if not assistant_message:
+    if not assistant_message and tool_call_name != "send_video_message":
         assistant_message_text = get_response_text(response)
         if assistant_message_text:
             assistant_message = InteractionMessage(
@@ -150,4 +172,9 @@ async def handle_in_progress_transportista(
             tool_call_name = "obtener_ayuda_humana"
             next_state = TransportistaState.HUMAN_ESCALATION
 
-    return [assistant_message], next_state, tool_call_name, interaction_data
+    return (
+        [assistant_message] if assistant_message else [],
+        next_state,
+        tool_call_name,
+        interaction_data,
+    )

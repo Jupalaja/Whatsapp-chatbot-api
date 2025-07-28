@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     GOOGLE_CLOUD_LOCATION: Optional[str] = None
     GOOGLE_API_KEY: Optional[str] = None
 
+    # Google Storage
+    BUCKET_URL: Optional[str] = None
+
     # WhatsApp API
     SECRET_PATH: str
     WHATSAPP_SERVER_URL: Optional[str] = None
