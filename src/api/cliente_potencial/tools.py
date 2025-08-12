@@ -30,10 +30,18 @@ def obtener_informacion_empresa_contacto(
     return {k: v for k, v in locals().items() if v is not None}
 
 
-def informacion_esencial_obtenida(obtenida: bool):
+def informacion_de_contacto_esencial_obtenida(obtenida: bool):
     """
-    Llama a esta función con `obtenida=True` una vez que se haya recopilado TODA la información esencial del cliente potencial (nombre de contacto, teléfono, tipo de mercancía, ciudad de origen y ciudad de destino).
-    Esto indica que se puede proceder al siguiente paso.
+    Llama a esta función con `obtenida=True` una vez que se haya recopilado TODA la información esencial de contacto del cliente potencial (nombre de contacto y teléfono).
+    Esto indica que se puede proceder al siguiente paso de recopilar información del servicio.
+    """
+    return obtenida
+
+
+def informacion_de_servicio_esencial_obtenida(obtenida: bool):
+    """
+    Llama a esta función con `obtenida=True` una vez que se haya recopilado TODA la información esencial del servicio del cliente potencial (tipo de mercancía, ciudad de origen y ciudad de destino).
+    Esto indica que se puede proceder a finalizar la recopilación de datos.
     """
     return obtenida
 

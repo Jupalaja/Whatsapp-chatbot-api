@@ -19,7 +19,8 @@ from .prompts import (
 from .state import ClientePotencialState
 from .tools import (
     cliente_solicito_correo,
-    informacion_esencial_obtenida,
+    informacion_de_contacto_esencial_obtenida,
+    informacion_de_servicio_esencial_obtenida,
     es_persona_natural,
     necesita_agente_de_carga,
     guardar_correo_cliente,
@@ -610,7 +611,8 @@ async def _workflow_awaiting_remaining_information(
     tools = [
         obtener_informacion_empresa_contacto,
         obtener_informacion_servicio,
-        informacion_esencial_obtenida,
+        informacion_de_contacto_esencial_obtenida,
+        informacion_de_servicio_esencial_obtenida,
         es_mercancia_valida,
         es_ciudad_valida,
         es_solicitud_de_mudanza,
@@ -741,7 +743,7 @@ async def _workflow_awaiting_remaining_information(
             interaction_data["remaining_information"] = {}
         interaction_data["remaining_information"]["tipo_de_servicio"] = tipo_de_servicio
 
-    if tool_results.get("informacion_esencial_obtenida"):
+    if tool_results.get("informacion_de_servicio_esencial_obtenida"):
         return await _workflow_remaining_information_provided(
             interaction_data=interaction_data, 
             sheets_service=sheets_service, 
