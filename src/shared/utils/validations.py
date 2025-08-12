@@ -167,13 +167,13 @@ def es_ciudad_valida(ciudad: str):
     """
     Valida si una ciudad de origen o destino es válida según el área de cobertura de Botero Soto.
     Si el modelo detecta que el usuario menciona una ciudad, debe llamar a esta función para validarla.
-    Si la ciudad es inválida, esta función generará el mensaje de rechazo apropiado.
+    Si la ciudad es inválida, esta función generará el mensaje de rechazo apropiado. Para envíos internacionales fuera de la cobertura terrestre (Venezuela, Ecuador, Perú), se debe usar `es_envio_internacional`.
 
     **Instrucciones para el Modelo:**
-    1.  Analiza la ciudad mencionada por el usuario (ej: "Miami", "Santiago de Chile", "Bogotá").
+    1.  Analiza la ciudad mencionada por el usuario (ej: "Leticia", "Bogotá").
     2.  Llama a esta herramienta con el `ciudad` exacto que mencionó el usuario para que sea validada.
     3.  Si la ciudad es válida, la herramienta devolverá `True` y podrás continuar la conversación.
-    4.  Si la ciudad es inválida (fuera del área de cobertura), la herramienta devolverá un mensaje de texto. **Debes usar este mensaje como tu respuesta final al usuario y terminar la conversación sobre esa solicitud.**
+    4.  Si la ciudad es inválida (sin cobertura en Colombia), la herramienta devolverá un mensaje de texto. **Debes usar este mensaje como tu respuesta final al usuario y terminar la conversación sobre esa solicitud.**
 
     **Área de Cobertura de Botero Soto:**
     - **Principal:** Colombia.
@@ -190,6 +190,19 @@ def es_ciudad_valida(ciudad: str):
     if normalized_ciudad in BLACKLISTED_CITIES:
         return PROMPT_CIUDAD_NO_VALIDA.format(ciudad=ciudad.title())
     return True
+
+
+def es_envio_internacional(es_internacional: bool) -> bool:
+    """
+    Determina si el cliente requiere un envío a una ciudad o país fuera del área de cobertura directa de Botero Soto (Colombia, Venezuela, Ecuador, Perú).
+    El modelo debe analizar si la ubicación está fuera de esta zona y llamar a esta función con `es_internacional=True`.
+
+    **Instrucciones para el Modelo:**
+    1.  Analiza la ubicación de origen o destino mencionada (ej: "China", "Miami", "Madrid").
+    2.  Si la ubicación está claramente fuera de Colombia, Venezuela, Ecuador o Perú, DEBES llamar a esta herramienta con `es_internacional=True`.
+    3.  Si la ubicación está dentro de los países de cobertura (ej: "Caracas", "Quito", "Lima") o es una ciudad colombiana, NO llames a esta herramienta. Usa `es_ciudad_valida` para ciudades colombianas.
+    """
+    return es_internacional
 
 
 def es_solicitud_de_mudanza(es_mudanza: bool) -> bool:

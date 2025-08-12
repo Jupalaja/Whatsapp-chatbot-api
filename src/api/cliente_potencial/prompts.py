@@ -74,9 +74,9 @@ PROMPT_ASK_FOR_NIT="""
 ¡Perfecto! Para brindarte ayuda con tu cotización, ¿podrías indicarme el NIT de tu empresa?
 """
 
-PROMPT_AGENCIAMIENTO_DE_CARGA = """
-Para consultas sobre agenciamiento de carga contacta a nuestro ejecutivo comercial  *Luis Alberto Beltrán* al correo *labeltran@cargadirecta.co* o al teléfono *312 390 0599*.
-"""
+PROMPT_AGENCIAMIENTO_DE_CARGA = """Para consultas sobre agenciamiento de carga contacta a nuestro ejecutivo comercial  *Luis Alberto Beltrán* al correo *labeltran@cargadirecta.co* o al teléfono *312 390 0599*."""
+
+PROMPT_ENVIO_INTERNACIONAL="""Para envíos internacionales, consulta nuestro ejecutivo comercial de agenciamiento de carga *Luis Alberto Beltrán* al correo *labeltran@cargadirecta.co* o al teléfono *312 390 0599*"""
 
 PROMPT_DISCARD_PERSONA_NATURAL = """
 Actualmente, nuestro enfoque está dirigido exclusivamente al mercado empresarial (B2B),

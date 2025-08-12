@@ -15,11 +15,13 @@ from src.shared.constants import GEMINI_MODEL
 from src.shared.tools import obtener_ayuda_humana
 from src.shared.schemas import Clasificacion, InteractionMessage
 from src.shared.utils.history import get_genai_history
+from src.api.cliente_potencial.prompts import PROMPT_ENVIO_INTERNACIONAL
 from src.shared.utils.validations import (
     es_ciudad_valida,
     es_mercancia_valida,
     es_solicitud_de_mudanza,
     es_solicitud_de_paqueteo,
+    es_envio_internacional,
 )
 from src.shared.utils.functions import get_response_text, invoke_model_with_retries
 
@@ -42,6 +44,7 @@ async def workflow_tipo_de_interaccion(
         es_mercancia_valida,
         es_solicitud_de_mudanza,
         es_solicitud_de_paqueteo,
+        es_envio_internacional,
     ]
     config = types.GenerateContentConfig(
         tools=tools,
@@ -125,6 +128,10 @@ async def workflow_tipo_de_interaccion(
                 if es_solicitud_de_paqueteo(es_paqueteo):
                     from src.shared.prompts import PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO
                     terminating_message = PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO
+            elif function_call.name == "es_envio_internacional":
+                es_internacional = function_call.args.get("es_internacional", False)
+                if es_internacional:
+                    terminating_message = PROMPT_ENVIO_INTERNACIONAL
             elif function_call.name == "obtener_ayuda_humana":
                 terminating_message = obtener_ayuda_humana()
 

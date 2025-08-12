@@ -15,6 +15,7 @@ from .prompts import (
     PROMPT_DISCARD_PERSONA_NATURAL,
     PROMPT_EMAIL_GUARDADO_Y_FINALIZAR,
     PROMPT_GET_CUSTOMER_EMAIL_SYSTEM_PROMPT,
+    PROMPT_ENVIO_INTERNACIONAL
 )
 from .state import ClientePotencialState
 from .tools import (
@@ -42,6 +43,7 @@ from src.shared.utils.validations import (
     es_mercancia_valida,
     es_solicitud_de_mudanza,
     es_solicitud_de_paqueteo,
+    es_envio_internacional,
 )
 from src.shared.prompts import (
     PROMPT_SERVICIO_NO_PRESTADO_MUDANZA,
@@ -376,6 +378,7 @@ async def _workflow_awaiting_nit(
         es_solicitud_de_mudanza,
         es_solicitud_de_paqueteo,
         es_ciudad_valida,
+        es_envio_internacional,
         obtener_informacion_empresa_contacto,
         obtener_informacion_servicio,
     ]
@@ -416,6 +419,21 @@ async def _workflow_awaiting_nit(
             ],
             ClientePotencialState.CONVERSATION_FINISHED,
             "es_solicitud_de_paqueteo",
+            interaction_data,
+        )
+
+    if tool_results.get("es_envio_internacional"):
+        interaction_data["discarded"] = "es_envio_internacional"
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL,
+                    message=PROMPT_ENVIO_INTERNACIONAL,
+                    tool_calls=["es_envio_internacional"],
+                )
+            ],
+            ClientePotencialState.CONVERSATION_FINISHED,
+            "es_envio_internacional",
             interaction_data,
         )
 
