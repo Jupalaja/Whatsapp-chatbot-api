@@ -25,6 +25,7 @@ def obtener_informacion_empresa_contacto(
 ):
     """
     Se debe llamar a esta función para guardar cualquier pieza de información sobre la empresa o el contacto del cliente que se haya recopilado.
+    El parámetro `nombre_legal` corresponde a la razón social o nombre de la empresa.
     El modelo debe preguntar primero por la información de este grupo (razón social, nombre de contacto, cargo, correo y teléfono).
     """
     return {k: v for k, v in locals().items() if v is not None}
