@@ -16,16 +16,16 @@ def necesita_agente_de_carga():
     return True
 
 
-def obtener_informacion_esencial_cliente_potencial(
+def obtener_informacion_empresa_contacto(
+    nombre_legal: Optional[str] = None,
     nombre_persona_contacto: Optional[str] = None,
+    cargo: Optional[str] = None,
+    correo: Optional[str] = None,
     telefono: Optional[str] = None,
-    tipo_mercancia: Optional[str] = None,
-    ciudad_origen: Optional[str] = None,
-    ciudad_destino: Optional[str] = None,
 ):
     """
-    Se debe llamar a esta función para guardar cualquier pieza de información esencial del cliente que se haya recopilado.
-    El modelo debe seguir pidiendo la información faltante hasta que tenga todos los datos esenciales: nombre_persona_contacto, telefono, tipo_mercancia, ciudad_origen, y ciudad_destino.
+    Se debe llamar a esta función para guardar cualquier pieza de información sobre la empresa o el contacto del cliente que se haya recopilado.
+    El modelo debe preguntar primero por la información de este grupo (razón social, nombre de contacto, cargo, correo y teléfono).
     """
     return {k: v for k, v in locals().items() if v is not None}
 
@@ -38,17 +38,17 @@ def informacion_esencial_obtenida(obtenida: bool):
     return obtenida
 
 
-def obtener_informacion_adicional_cliente_potencial(
-    nombre_legal: Optional[str] = None,
-    correo: Optional[str] = None,
+def obtener_informacion_servicio(
+    tipo_mercancia: Optional[str] = None,
     detalles_mercancia: Optional[str] = None,
     peso_de_mercancia: Optional[str] = None,
+    ciudad_origen: Optional[str] = None,
+    ciudad_destino: Optional[str] = None,
     promedio_viajes_mensuales: Optional[int] = None,
 ):
     """
-    Se debe llamar a esta función para guardar cualquier información adicional del cliente que se haya recopilado.
-    Esta función guarda detalles opcionales del cliente potencial.
-    No se debe insistir al usuario para obtener esta información si decide no proporcionarla.
+    Se debe llamar a esta función para guardar cualquier pieza de información sobre el servicio que requiere el cliente.
+    El modelo debe preguntar por esta información después de recopilar los datos de la empresa y del contacto.
     """
     # Return only provided values
     return {k: v for k, v in locals().items() if v is not None}

@@ -19,15 +19,15 @@ from .prompts import (
 from .state import ClientePotencialState
 from .tools import (
     cliente_solicito_correo,
-    obtener_informacion_esencial_cliente_potencial,
     informacion_esencial_obtenida,
-    obtener_informacion_adicional_cliente_potencial,
     es_persona_natural,
     necesita_agente_de_carga,
     guardar_correo_cliente,
     buscar_nit as buscar_nit_tool,
     limpiar_datos_agente_comercial,
     obtener_tipo_de_servicio,
+    obtener_informacion_empresa_contacto,
+    obtener_informacion_servicio,
 )
 from src.config import settings
 from src.shared.constants import GEMINI_MODEL
@@ -93,6 +93,7 @@ async def _write_cliente_potencial_to_sheet(
         razon_social = remaining_info.get("nombre_legal", "")
         ciudad = ""  # Not specified in requirements
         nombre_decisor = remaining_info.get("nombre_persona_contacto", "")
+        cargo = remaining_info.get("cargo", "")
         celular = remaining_info.get("telefono", "")
         correo = remaining_info.get("correo") or customer_email or ""
         tipo_servicio = remaining_info.get("tipo_de_servicio", "")
@@ -122,6 +123,7 @@ async def _write_cliente_potencial_to_sheet(
             razon_social,
             ciudad,
             nombre_decisor,
+            cargo,
             celular,
             correo,
             tipo_servicio,
@@ -372,9 +374,9 @@ async def _workflow_awaiting_nit(
         es_mercancia_valida,
         es_solicitud_de_mudanza,
         es_solicitud_de_paqueteo,
-        obtener_informacion_esencial_cliente_potencial,
-        obtener_informacion_adicional_cliente_potencial,
         es_ciudad_valida,
+        obtener_informacion_empresa_contacto,
+        obtener_informacion_servicio,
     ]
 
     (
@@ -466,13 +468,13 @@ async def _workflow_awaiting_nit(
     if "remaining_information" not in interaction_data:
         interaction_data["remaining_information"] = {}
 
-    if "obtener_informacion_esencial_cliente_potencial" in tool_results:
-        collected_info = tool_results["obtener_informacion_esencial_cliente_potencial"]
+    if "obtener_informacion_empresa_contacto" in tool_results:
+        collected_info = tool_results["obtener_informacion_empresa_contacto"]
         interaction_data["remaining_information"].update(collected_info)
 
-    if "obtener_informacion_adicional_cliente_potencial" in tool_results:
+    if "obtener_informacion_servicio" in tool_results:
         collected_info = tool_results[
-            "obtener_informacion_adicional_cliente_potencial"
+            "obtener_informacion_servicio"
         ]
         interaction_data["remaining_information"].update(collected_info)
 
@@ -504,12 +506,11 @@ async def _workflow_awaiting_nit(
         )
 
     if "buscar_nit" in tool_results:
-        assistant_message_text = text_response
-        if not assistant_message_text:
-            # Fallback in case the model does not return text after tool execution
-            assistant_message_text = await _get_final_text_response(
-                history_messages, client, CLIENTE_POTENCIAL_GATHER_INFO_SYSTEM_PROMPT
-            )
+        # After finding the NIT, we need to ask for the next piece of information
+        # using the more specific prompt that defines the question order.
+        assistant_message_text = await _get_final_text_response(
+            history_messages, client, CLIENTE_POTENCIAL_GATHER_INFO_SYSTEM_PROMPT
+        )
 
         return (
             [
@@ -607,9 +608,9 @@ async def _workflow_awaiting_remaining_information(
 ) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str], dict]:
     """Handles the workflow for gathering detailed information from a potential client."""
     tools = [
-        obtener_informacion_esencial_cliente_potencial,
+        obtener_informacion_empresa_contacto,
+        obtener_informacion_servicio,
         informacion_esencial_obtenida,
-        obtener_informacion_adicional_cliente_potencial,
         es_mercancia_valida,
         es_ciudad_valida,
         es_solicitud_de_mudanza,
@@ -713,24 +714,24 @@ async def _workflow_awaiting_remaining_information(
         )
 
     # Information gathering logic
-    essential_info_provided = (
-            "obtener_informacion_esencial_cliente_potencial" in tool_results
+    empresa_contacto_info_provided = (
+            "obtener_informacion_empresa_contacto" in tool_results
     )
-    additional_info_provided = (
-            "obtener_informacion_adicional_cliente_potencial" in tool_results
+    servicio_info_provided = (
+            "obtener_informacion_servicio" in tool_results
     )
 
-    if essential_info_provided or additional_info_provided:
+    if empresa_contacto_info_provided or servicio_info_provided:
         if "remaining_information" not in interaction_data:
             interaction_data["remaining_information"] = {}
 
-    if essential_info_provided:
-        collected_info = tool_results["obtener_informacion_esencial_cliente_potencial"]
+    if empresa_contacto_info_provided:
+        collected_info = tool_results["obtener_informacion_empresa_contacto"]
         interaction_data["remaining_information"].update(collected_info)
 
-    if additional_info_provided:
+    if servicio_info_provided:
         collected_info = tool_results[
-            "obtener_informacion_adicional_cliente_potencial"
+            "obtener_informacion_servicio"
         ]
         interaction_data["remaining_information"].update(collected_info)
     
