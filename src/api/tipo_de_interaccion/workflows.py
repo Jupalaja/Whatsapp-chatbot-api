@@ -161,17 +161,27 @@ async def workflow_tipo_de_interaccion(
                 role=InteractionType.MODEL, message=assistant_message_text
             )
 
-    if not assistant_message:
-        # If no text response and no terminating tool, use autopilot to get more info.
+    # Check if any tool other than 'clasificar_interaccion' was called.
+    meaningful_tool_called = False
+    if response.function_calls:
+        meaningful_tool_called = any(
+            fc.name != "clasificar_interaccion" for fc in response.function_calls
+        )
+
+    if not assistant_message and not meaningful_tool_called:
+        # If no text response and no meaningful tool, use autopilot to get more info.
+        # This typically happens for vague user inputs like "hola".
         logger.info(
-            "No text response from model. Using autopilot to get more information."
+            "No text response from model and no meaningful tools called. Using autopilot to get more information."
         )
 
         autopilot_config = types.GenerateContentConfig(
             tools=[obtener_ayuda_humana],
             system_instruction=TIPO_DE_INTERACCION_AUTOPILOT_SYSTEM_PROMPT,
             temperature=0.0,
-            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                disable=True
+            ),
         )
         try:
             autopilot_response = await invoke_model_with_retries(
@@ -183,7 +193,8 @@ async def workflow_tipo_de_interaccion(
 
             if (
                 autopilot_response.function_calls
-                and autopilot_response.function_calls[0].name == "obtener_ayuda_humana"
+                and autopilot_response.function_calls[0].name
+                == "obtener_ayuda_humana"
             ):
                 tool_call_name = "obtener_ayuda_humana"
                 assistant_message_text = obtener_ayuda_humana()
@@ -191,9 +202,7 @@ async def workflow_tipo_de_interaccion(
                 assistant_message_text = get_response_text(autopilot_response)
 
             if not assistant_message_text:
-                logger.warning(
-                    "Autopilot also returned no text. Escalating to human."
-                )
+                logger.warning("Autopilot also returned no text. Escalating to human.")
                 assistant_message_text = obtener_ayuda_humana()
                 tool_call_name = "obtener_ayuda_humana"
 
@@ -214,4 +223,4 @@ async def workflow_tipo_de_interaccion(
             )
             tool_call_name = "obtener_ayuda_humana"
 
-    return [assistant_message], clasificacion, tool_call_name
+    return [assistant_message] if assistant_message else [], clasificacion, tool_call_name
