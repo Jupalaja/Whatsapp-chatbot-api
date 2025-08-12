@@ -214,14 +214,4 @@ async def workflow_tipo_de_interaccion(
             )
             tool_call_name = "obtener_ayuda_humana"
 
-    # Determine tool_call_name if not already set by a terminating tool.
-    if not tool_call_name and response.function_calls:
-        non_classifying_calls = [
-            fc.name
-            for fc in response.function_calls
-            if fc.name != "clasificar_interaccion"
-        ]
-        if non_classifying_calls:
-            tool_call_name = non_classifying_calls[0]
-
     return [assistant_message], clasificacion, tool_call_name

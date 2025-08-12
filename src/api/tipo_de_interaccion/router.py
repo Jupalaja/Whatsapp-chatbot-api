@@ -132,6 +132,7 @@ async def handle(
             "es_ciudad_valida",
             "es_solicitud_de_mudanza",
             "es_solicitud_de_paqueteo",
+            "es_envio_internacional",
         ]
         if tool_call_name in validation_tools:
             interaction.state = GlobalState.CONVERSATION_FINISHED.value
