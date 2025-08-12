@@ -209,7 +209,12 @@ def es_envio_internacional(es_internacional: bool) -> bool:
 def es_solicitud_de_mudanza(es_mudanza: bool) -> bool:
     """
     Determina si la solicitud del cliente es para una mudanza.
-    El modelo debe analizar el tipo de mercancía y la descripción del usuario y llamar a esta función con `es_mudanza=True` si corresponde a un servicio de mudanza o trasteo.
+    El modelo debe analizar la descripción del usuario y llamar a esta función con `es_mudanza=True` si la solicitud se refiere a un servicio de mudanza, trasteo o el transporte de enseres domésticos como muebles, electrodomésticos, colchones, etc.
+
+    **Instrucciones para el Modelo:**
+    1.  Analiza el mensaje en busca de palabras clave como "mudanza", "trasteo", "muebles", "enseres", "electrodomésticos", "nevera", "cama", "sofá", etc.
+    2.  Si la solicitud se ajusta a la descripción de una mudanza, llama a esta herramienta con `es_mudanza=True`.
+    3.  Si no estás seguro, es mejor no llamar a la herramienta y continuar la conversación para aclarar.
     """
     return es_mudanza
 
