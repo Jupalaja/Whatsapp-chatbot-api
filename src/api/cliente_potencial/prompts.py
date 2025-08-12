@@ -173,6 +173,6 @@ Mantén la conversación enfocada en obtener la dirección de correo electrónic
 
 PROMPT_EMAIL_GUARDADO_Y_FINALIZAR = "¡Perfecto! Hemos guardado tu correo electrónico. Un agente comercial se pondrá en contacto contigo a la brevedad. Gracias por contactar a Botero Soto."
 
-PROMPT_ASIGNAR_AGENTE_COMERCIAL = "Te asignaremos un agente comercial para que se ponga en contacto contigo, a continuación te compartiremos su información"
+PROMPT_ASIGNAR_AGENTE_COMERCIAL = "Muchas gracias por la información proporcionada. Esta ya fue asignada a uno de nuestros ejecutivos comerciales, quien se pondrá en contacto con ustedes lo antes posible.\n¡Que tengas un excelente día!"
 
 PROMPT_CONTACTAR_AGENTE_ASIGNADO = "Con todo el gusto te comparto la información del agente comercial que tienen asignado a su cuenta, para que te ayude con el requerimiento que tienen. Se trata de *{responsable_comercial}*.{contact_details}"
