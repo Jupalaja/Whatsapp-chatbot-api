@@ -221,9 +221,9 @@ def es_solicitud_de_paqueteo(es_paqueteo: bool) -> bool:
     Se considera "paqueteo" el transporte de mercancía de bajo peso y volumen. Esto incluye cualquier solicitud con un peso explícitamente mencionado que sea inferior a 1000 kilogramos (1 tonelada).
 
     **Instrucciones para el Modelo:**
-    1.  Analiza la descripción del usuario en busca de menciones de peso (ej: "30 kilos", "500 kg", "media tonelada").
-    2.  Si el peso mencionado es **menor a 1000 kg**, DEBES llamar a esta herramienta con `es_paqueteo=True`.
-    3.  También utiliza esta herramienta si el usuario usa términos como "paquete pequeño", "caja pequeña", etc.
-    4.  Si el peso es de 1000 kg o más, o si no se menciona un peso y la descripción no sugiere paqueteo, **NO** llames a esta herramienta.
+    1.  Analiza la descripción del usuario en busca de menciones de peso (ej: "30 kilos", "500 kg", "media tonelada"). Si el peso mencionado es **menor a 1000 kg**, DEBES llamar a esta herramienta con `es_paqueteo=True`.
+    2.  Utiliza esta herramienta si el usuario usa términos que **inequívocamente** se refieren a envíos pequeños, como "un sobre", "un paquete pequeño", o "una cajita".
+    3.  Si el usuario menciona "cajas" sin especificar el peso total o las dimensiones (ej: "3 cajas de zapatos"), **NO** asumas que es paqueteo y **NO llames a esta herramienta**. En su lugar, continúa la conversación para obtener el peso de la mercancía.
+    4.  Si el peso es de 1000 kg o más, o si no se menciona un peso y la descripción no sugiere paqueteo (y no cumple con el punto 2), **NO** llames a esta herramienta.
     """
     return es_paqueteo

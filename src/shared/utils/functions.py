@@ -8,6 +8,7 @@ from google.genai import types, errors
 from src.services.google_sheets import GoogleSheetsService
 from src.shared.constants import (
     GEMINI_MODEL,
+    GEMINI_FALLBACK_MODEL,
     MESSAGES_AFTER_CONVERSATION_FINISHED,
 )
 from src.shared.enums import InteractionType
@@ -27,25 +28,43 @@ async def invoke_model_with_retries(
 ) -> types.GenerateContentResponse:
     """
     Invokes a Gemini model's generate_content method with retries for server-side errors.
+    If the primary model fails, it attempts to use a fallback model.
     """
-    max_retries: int = 2
+    max_retries_per_model: int = 2  # 3 attempts per model
     initial_delay: float = 1.0
     backoff_factor: float = 2.0
-    delay = initial_delay
 
-    for attempt in range(max_retries + 1):
-        try:
-            return await generate_content_func(*args, **kwargs)
-        except errors.ServerError as e:
-            logger.warning(
-                f"Server error on attempt {attempt + 1}/{max_retries + 1}: {e}. Retrying in {delay}s..."
-            )
-            if attempt < max_retries:
-                await asyncio.sleep(delay)
-                delay *= backoff_factor
-            else:
-                logger.error("All retries failed for model invocation.")
-                raise e
+    primary_model = kwargs.get("model", GEMINI_MODEL)
+    models_to_try = [primary_model]
+    if primary_model != GEMINI_FALLBACK_MODEL and GEMINI_FALLBACK_MODEL:
+        models_to_try.append(GEMINI_FALLBACK_MODEL)
+
+    last_exception = None
+
+    for model_name in models_to_try:
+        kwargs["model"] = model_name
+        delay = initial_delay
+        logger.info(f"Attempting to use model: {model_name}")
+
+        for attempt in range(max_retries_per_model + 1):
+            try:
+                return await generate_content_func(*args, **kwargs)
+            except errors.ServerError as e:
+                last_exception = e
+                logger.warning(
+                    f"Server error on attempt {attempt + 1}/{max_retries_per_model + 1} with model {model_name}: {e}. Retrying in {delay}s..."
+                )
+                if attempt < max_retries_per_model:
+                    await asyncio.sleep(delay)
+                    delay *= backoff_factor
+                else:
+                    logger.error(f"All retries failed for model {model_name}.")
+                    break  # Go to the next model
+
+    logger.error("All retries for all models failed for model invocation.")
+    if last_exception:
+        raise last_exception
+
     raise RuntimeError("This line should not be reachable.")  # For mypy
 
 
