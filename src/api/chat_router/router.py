@@ -154,6 +154,7 @@ async def _chat_router_logic(
             "es_solicitud_de_mudanza",
             "es_solicitud_de_paqueteo",
             "obtener_ayuda_humana",
+            "es_envio_internacional",
         ]
 
         if clasificacion:
@@ -308,6 +309,7 @@ async def _chat_router_logic(
             "es_ciudad_valida",
             "es_solicitud_de_mudanza",
             "es_solicitud_de_paqueteo",
+            "es_envio_internacional",
         ]
         if tool_call_name in validation_function_tools:
             interaction.state = GlobalState.CONVERSATION_FINISHED.value
