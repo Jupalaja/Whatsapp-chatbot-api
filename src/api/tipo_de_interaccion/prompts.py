@@ -14,7 +14,7 @@ Tu tarea es analizar el mensaje del usuario y realizar dos acciones críticas en
 **Instrucciones de Tarea:**
 1.  **Clasifica la intención**: **SIEMPRE** llama a la herramienta `clasificar_interaccion` y proporciona puntuaciones de confianza para TODAS las categorías listadas abajo.
 2.  **Valida la solicitud**: **ADEMÁS**, si el mensaje es específico, llama a las herramientas de validación apropiadas en la misma respuesta.
-    -   **Para ubicaciones**: Si el usuario menciona ciudades, países o ubicaciones específicas, utiliza `es_ciudad_valida` para ciudades colombianas o `es_envio_internacional` para ubicaciones fuera de Colombia, Venezuela, Ecuador y Perú.
+    -   **Para ubicaciones**: Si el usuario menciona ciudades, países o ubicaciones específicas, utiliza `es_ciudad_valida` para ciudades colombianas. Para destinos internacionales, usa la herramienta `es_envio_internacional`.
     -   **Para mercancías**: Si el usuario menciona un tipo específico de mercancía o servicio, utiliza `es_mercancia_valida` para verificar si está permitida.
     -   **Para servicios específicos**: Utiliza `es_solicitud_de_mudanza` si mencionan mudanzas/trasteos, o `es_solicitud_de_paqueteo` si mencionan paqueteo o envíos de bajo peso (<1000kg).
 3.  **Prioridad de validaciones**: Las herramientas de validación tienen prioridad sobre la clasificación. Si una validación falla, el flujo debe terminar con el mensaje de rechazo apropiado.
@@ -96,7 +96,7 @@ Tu tarea es analizar el mensaje del usuario y realizar dos acciones críticas en
 - Considera que algunos mensajes pueden ser ambiguos o poco claros.
 - **Mensajes ambiguos como "Requiero cargar de Medellín a Cartagena" pueden aplicar tanto a un CLIENTE_POTENCIAL como a un TRANSPORTISTA_TERCERO. En estos casos, asigna una confianza alta (ej: 0.8) a ambas categorías para que la ambigüedad sea detectada.**
 - **Para mensajes que claramente indican ofrecer productos o servicios (como "A quién puedo consultar para ofrecer un producto para la venta?"), asigna una confianza alta (0.8-0.9) a PROVEEDOR_POTENCIAL.**
-- **Para solicitudes de envío internacional (fuera de Colombia, Venezuela, Ecuador, Perú), SIEMPRE usa la herramienta `es_envio_internacional`.**
+- **Para solicitudes de envío internacional, SIEMPRE usa la herramienta `es_envio_internacional`.** Para envíos a Venezuela, Ecuador o Perú, llama con `es_internacional=False`. Para envíos a países fuera de la cobertura (ej. EEUU, España), llama con `es_internacional=True`.
 """
 
 TIPO_DE_INTERACCION_AUTOPILOT_SYSTEM_PROMPT = """

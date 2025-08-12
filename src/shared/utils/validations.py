@@ -194,13 +194,14 @@ def es_ciudad_valida(ciudad: str):
 
 def es_envio_internacional(es_internacional: bool) -> bool:
     """
-    Determina si el cliente requiere un envío a una ciudad o país fuera del área de cobertura directa de Botero Soto (Colombia, Venezuela, Ecuador, Perú).
-    El modelo debe analizar si la ubicación está fuera de esta zona y llamar a esta función con `es_internacional=True`.
+    Determina si una solicitud de envío es para un destino internacional y si está dentro de la cobertura de Botero Soto.
+    La cobertura terrestre incluye: Colombia, Venezuela, Ecuador y Perú.
 
     **Instrucciones para el Modelo:**
-    1.  Analiza la ubicación de origen o destino mencionada (ej: "China", "Miami", "Madrid").
-    2.  Si la ubicación está claramente fuera de Colombia, Venezuela, Ecuador o Perú, DEBES llamar a esta herramienta con `es_internacional=True`.
-    3.  Si la ubicación está dentro de los países de cobertura (ej: "Caracas", "Quito", "Lima") o es una ciudad colombiana, NO llames a esta herramienta. Usa `es_ciudad_valida` para ciudades colombianas.
+    1.  Analiza la ubicación de origen o destino mencionada.
+    2.  Si el destino está en **Venezuela, Ecuador o Perú**, llama a esta herramienta con `es_internacional=False` para indicar que es un destino internacional válido.
+    3.  Si el destino está **fuera de Colombia, Venezuela, Ecuador y Perú** (ej: "China", "Miami", "Madrid"), llama a esta herramienta con `es_internacional=True` para indicar que es un destino no válido.
+    4.  Si el envío es dentro de Colombia, usa la herramienta `es_ciudad_valida` en su lugar y no llames a esta.
     """
     return es_internacional
 
