@@ -100,48 +100,58 @@ async def workflow_tipo_de_interaccion(
                     return [assistant_message], None, "obtener_ayuda_humana"
                 break
 
-        # Process other function calls that might generate a terminating response.
-        for function_call in response.function_calls:
-            if function_call.name == "clasificar_interaccion":
-                continue
+        # Process validation function calls that generate terminating responses.
+        # These should be processed in priority order to handle cases where multiple validations fail.
+        validation_priority = [
+            "es_envio_internacional",
+            "es_mercancia_valida", 
+            "es_ciudad_valida",
+            "es_solicitud_de_mudanza",
+            "es_solicitud_de_paqueteo",
+            "obtener_ayuda_humana"
+        ]
+        
+        for validation_tool in validation_priority:
+            for function_call in response.function_calls:
+                if function_call.name == validation_tool:
+                    terminating_message = None
+                    tool_call_name = function_call.name
 
-            terminating_message = None
-            tool_call_name = function_call.name
+                    if function_call.name == "es_mercancia_valida":
+                        mercancia = function_call.args.get("tipo_mercancia", "")
+                        validation_result = es_mercancia_valida(mercancia)
+                        if isinstance(validation_result, str):
+                            terminating_message = validation_result
+                    elif function_call.name == "es_ciudad_valida":
+                        ciudad = function_call.args.get("ciudad", "")
+                        validation_result = es_ciudad_valida(ciudad)
+                        if isinstance(validation_result, str):
+                            terminating_message = validation_result
+                    elif function_call.name == "es_solicitud_de_mudanza":
+                        es_mudanza = function_call.args.get("es_mudanza", False)
+                        if es_solicitud_de_mudanza(es_mudanza):
+                            from src.shared.prompts import PROMPT_SERVICIO_NO_PRESTADO_MUDANZA
+                            terminating_message = PROMPT_SERVICIO_NO_PRESTADO_MUDANZA
+                    elif function_call.name == "es_solicitud_de_paqueteo":
+                        es_paqueteo = function_call.args.get("es_paqueteo", False)
+                        if es_solicitud_de_paqueteo(es_paqueteo):
+                            from src.shared.prompts import PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO
+                            terminating_message = PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO
+                    elif function_call.name == "es_envio_internacional":
+                        es_internacional = function_call.args.get("es_internacional", False)
+                        if es_internacional:
+                            terminating_message = PROMPT_ENVIO_INTERNACIONAL
+                    elif function_call.name == "obtener_ayuda_humana":
+                        terminating_message = obtener_ayuda_humana()
 
-            if function_call.name == "es_mercancia_valida":
-                mercancia = function_call.args.get("tipo_mercancia", "")
-                validation_result = es_mercancia_valida(mercancia)
-                if isinstance(validation_result, str):
-                    terminating_message = validation_result
-            elif function_call.name == "es_ciudad_valida":
-                ciudad = function_call.args.get("ciudad", "")
-                validation_result = es_ciudad_valida(ciudad)
-                if isinstance(validation_result, str):
-                    terminating_message = validation_result
-            elif function_call.name == "es_solicitud_de_mudanza":
-                es_mudanza = function_call.args.get("es_mudanza", False)
-                if es_solicitud_de_mudanza(es_mudanza):
-                    from src.shared.prompts import PROMPT_SERVICIO_NO_PRESTADO_MUDANZA
-                    terminating_message = PROMPT_SERVICIO_NO_PRESTADO_MUDANZA
-            elif function_call.name == "es_solicitud_de_paqueteo":
-                es_paqueteo = function_call.args.get("es_paqueteo", False)
-                if es_solicitud_de_paqueteo(es_paqueteo):
-                    from src.shared.prompts import PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO
-                    terminating_message = PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO
-            elif function_call.name == "es_envio_internacional":
-                es_internacional = function_call.args.get("es_internacional", False)
-                if es_internacional:
-                    terminating_message = PROMPT_ENVIO_INTERNACIONAL
-            elif function_call.name == "obtener_ayuda_humana":
-                terminating_message = obtener_ayuda_humana()
-
-            if terminating_message:
-                assistant_message = InteractionMessage(
-                    role=InteractionType.MODEL,
-                    message=terminating_message,
-                    tool_calls=[tool_call_name],
-                )
-                return [assistant_message], clasificacion, tool_call_name
+                    if terminating_message:
+                        assistant_message = InteractionMessage(
+                            role=InteractionType.MODEL,
+                            message=terminating_message,
+                            tool_calls=[tool_call_name],
+                        )
+                        return [assistant_message], clasificacion, tool_call_name
+                    break
 
     # If no terminating tool was called, use the text response from the model.
     if not assistant_message:
