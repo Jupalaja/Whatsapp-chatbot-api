@@ -638,6 +638,7 @@ async def _workflow_awaiting_remaining_information(
         obtener_ayuda_humana,
         cliente_solicito_correo,
         obtener_tipo_de_servicio,
+        es_envio_internacional,
     ]
 
     (
@@ -662,6 +663,21 @@ async def _workflow_awaiting_remaining_information(
             ],
             ClientePotencialState.HUMAN_ESCALATION,
             "obtener_ayuda_humana",
+            interaction_data,
+        )
+
+    if tool_results.get("es_envio_internacional"):
+        interaction_data["discarded"] = "es_envio_internacional"
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL,
+                    message=PROMPT_ENVIO_INTERNACIONAL,
+                    tool_calls=["es_envio_internacional"],
+                )
+            ],
+            ClientePotencialState.CONVERSATION_FINISHED,
+            "es_envio_internacional",
             interaction_data,
         )
 
