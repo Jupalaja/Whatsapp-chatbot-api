@@ -166,7 +166,7 @@ async def handle_conversation_finished(
         )
     except errors.ServerError as e:
         logger.error(f"Gemini API Server Error after retries: {e}", exc_info=True)
-        assistant_message_text = obtener_ayuda_humana(reason=f"Error de API: {e}")
+        assistant_message_text = obtener_ayuda_humana()
         tool_call_name = "obtener_ayuda_humana"
         next_state = GlobalState.HUMAN_ESCALATION
         assistant_message = InteractionMessage(
@@ -249,7 +249,7 @@ async def execute_tool_calls_and_get_response(
         except errors.ServerError as e:
             logger.error(f"Gemini API Server Error after retries: {e}", exc_info=True)
             return (
-                obtener_ayuda_humana(reason=f"Error de API: {e}"),
+                obtener_ayuda_humana(),
                 {"obtener_ayuda_humana": True},
                 ["obtener_ayuda_humana"],
                 {},

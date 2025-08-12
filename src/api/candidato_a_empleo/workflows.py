@@ -88,7 +88,7 @@ async def handle_in_progress_candidato_a_empleo(
         )
     except errors.ServerError as e:
         logger.error(f"Gemini API Server Error after retries: {e}", exc_info=True)
-        assistant_message_text = obtener_ayuda_humana(reason=f"Error de API: {e}")
+        assistant_message_text = obtener_ayuda_humana()
         tool_call_name = "obtener_ayuda_humana"
         next_state = CandidatoAEmpleoState.HUMAN_ESCALATION
         assistant_message = InteractionMessage(

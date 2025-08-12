@@ -167,7 +167,7 @@ async def _get_final_text_response(
         return get_response_text(response)
     except errors.ServerError as e:
         logger.error(f"Gemini API Server Error after retries: {e}", exc_info=True)
-        return obtener_ayuda_humana(reason=f"Error de API: {e}")
+        return obtener_ayuda_humana()
 
 
 async def _clean_commercial_agent_data(

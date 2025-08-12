@@ -62,7 +62,7 @@ async def workflow_tipo_de_interaccion(
         logger.error(f"Gemini API Server Error after retries: {e}", exc_info=True)
         assistant_message = InteractionMessage(
             role=InteractionType.MODEL,
-            message=obtener_ayuda_humana(reason=f"Error de API: {e}"),
+            message=obtener_ayuda_humana(),
             tool_calls=["obtener_ayuda_humana"],
         )
         return [assistant_message], None, "obtener_ayuda_humana"
@@ -94,7 +94,7 @@ async def workflow_tipo_de_interaccion(
                     logger.error(f"Error validating clasificacion: {e}", exc_info=True)
                     assistant_message = InteractionMessage(
                         role=InteractionType.MODEL,
-                        message=obtener_ayuda_humana(reason="Error de clasificación"),
+                        message=obtener_ayuda_humana(),
                         tool_calls=["obtener_ayuda_humana"],
                     )
                     return [assistant_message], None, "obtener_ayuda_humana"
@@ -209,7 +209,7 @@ async def workflow_tipo_de_interaccion(
             )
             assistant_message = InteractionMessage(
                 role=InteractionType.MODEL,
-                message=obtener_ayuda_humana(reason=f"Error de API: {e}"),
+                message=obtener_ayuda_humana(),
                 tool_calls=["obtener_ayuda_humana"],
             )
             tool_call_name = "obtener_ayuda_humana"
