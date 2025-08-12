@@ -437,35 +437,32 @@ async def _workflow_awaiting_nit(
             interaction_data,
         )
 
-    validation_result_mercancia = tool_results.get("es_mercancia_valida")
-    if validation_result_mercancia and isinstance(validation_result_mercancia, str):
-        interaction_data["discarded"] = "no_es_mercancia_valida"
-        return (
-            [
-                InteractionMessage(
-                    role=InteractionType.MODEL,
-                    message=validation_result_mercancia,
-                    tool_calls=["es_mercancia_valida"],
-                )
-            ],
-            ClientePotencialState.CONVERSATION_FINISHED,
-            "es_mercancia_valida",
-            interaction_data,
-        )
+    validation_checks = {
+        "es_mercancia_valida": tool_results.get("es_mercancia_valida"),
+        "es_ciudad_valida": tool_results.get("es_ciudad_valida"),
+    }
+    terminating_tool_name = None
+    for check, result in validation_checks.items():
+        if result and isinstance(result, str):
+            terminating_tool_name = check
+            if check == "es_mercancia_valida":
+                interaction_data["discarded"] = "no_es_mercancia_valida"
+            elif check == "es_ciudad_valida":
+                interaction_data["discarded"] = "no_es_ciudad_valida"
+            break
 
-    validation_result_ciudad = tool_results.get("es_ciudad_valida")
-    if validation_result_ciudad and isinstance(validation_result_ciudad, str):
-        interaction_data["discarded"] = "no_es_ciudad_valida"
+    if terminating_tool_name:
+        final_message = text_response or tool_results[terminating_tool_name]
         return (
             [
                 InteractionMessage(
                     role=InteractionType.MODEL,
-                    message=validation_result_ciudad,
-                    tool_calls=["es_ciudad_valida"],
+                    message=final_message,
+                    tool_calls=[terminating_tool_name],
                 )
             ],
             ClientePotencialState.CONVERSATION_FINISHED,
-            "es_ciudad_valida",
+            terminating_tool_name,
             interaction_data,
         )
 
@@ -716,23 +713,29 @@ async def _workflow_awaiting_remaining_information(
         "es_ciudad_valida": tool_results.get("es_ciudad_valida"),
     }
 
+    terminating_tool_name = None
     for check, result in validation_checks.items():
         if result and (isinstance(result, str)):
+            terminating_tool_name = check
             if check == "es_mercancia_valida":
                 interaction_data["discarded"] = "no_es_mercancia_valida"
             elif check == "es_ciudad_valida":
                 interaction_data["discarded"] = "no_es_ciudad_valida"
-            interaction_data["messages_after_finished_count"] = 0
-            return (
-                [
-                    InteractionMessage(
-                        role=InteractionType.MODEL, message=result, tool_calls=[check]
-                    )
-                ],
-                ClientePotencialState.CONVERSATION_FINISHED,
-                check,
-                interaction_data,
-            )
+            break
+
+    if terminating_tool_name:
+        interaction_data["messages_after_finished_count"] = 0
+        final_message = text_response or tool_results[terminating_tool_name]
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL, message=final_message, tool_calls=[terminating_tool_name]
+                )
+            ],
+            ClientePotencialState.CONVERSATION_FINISHED,
+            terminating_tool_name,
+            interaction_data,
+        )
 
     if "cliente_solicito_correo" in tool_results:
         interaction_data["customer_requested_email_sent"] = True
