@@ -1,5 +1,4 @@
 from typing import Optional
-from src.shared.enums import CategoriaClienteActivo
 
 
 def buscar_nit(nit: str):
@@ -7,16 +6,19 @@ def buscar_nit(nit: str):
     return nit
 
 
-def clasificar_solicitud_cliente_activo(categoria: str) -> dict:
-    """
-    Clasifica la consulta de un cliente activo en una de las categorías predefinidas.
-    El modelo debe analizar la consulta y llamar a esta función con el valor correspondiente del enumerado `CategoriaClienteActivo`.
+def es_consulta_trazabilidad(es_trazabilidad: bool) -> bool:
+    """Retorna True si la consulta tiene que ver con trazabilidad (ubicar un vehículo)."""
+    return es_trazabilidad
 
-    Args:
-        categoria: La categoría de la consulta del cliente.
-    """
-    valid_categoria = CategoriaClienteActivo(categoria)
-    return {"categoria": valid_categoria.value}
+
+def es_consulta_bloqueos_cartera(es_bloqueos_cartera: bool) -> bool:
+    """Retorna True si la consulta tiene que ver con bloqueos de cartera."""
+    return es_bloqueos_cartera
+
+
+def es_consulta_facturacion(es_facturacion: bool) -> bool:
+    """Retorna True si la consulta tiene que ver con facturación."""
+    return es_facturacion
 
 
 def limpiar_datos_agente_comercial(
