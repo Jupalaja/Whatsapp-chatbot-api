@@ -1,16 +1,16 @@
-from src.shared.enums import CategoriaTransportista
+def es_consulta_manifiestos(es_manifiestos: bool) -> bool:
+    """Llama a esta función con `es_manifiestos=True` si la consulta del transportista es sobre manifiestos o su pago."""
+    return es_manifiestos
 
 
-def obtener_tipo_de_solicitud(categoria: str) -> dict:
-    """
-    Clasifica la consulta de un transportista en una de las categorías predefinidas.
-    El modelo debe analizar la consulta y llamar a esta función con el valor correspondiente del enumerado `CategoriaTransportista`.
+def es_consulta_enturnamientos(es_enturnamientos: bool) -> bool:
+    """Llama a esta función con `es_enturnamientos=True` si la consulta del transportista es sobre enturnamientos, reporte de eventos, registro de nuevos usuarios o actualización de datos (que no sean sobre la app)."""
+    return es_enturnamientos
 
-    Args:
-        categoria: La categoría de la consulta del transportista.
-    """
-    valid_categoria = CategoriaTransportista(categoria)
-    return {"categoria": valid_categoria.value}
+
+def es_consulta_app(es_app: bool) -> bool:
+    """Llama a esta función con `es_app=True` si la consulta del transportista es sobre cualquier duda o problema con la aplicación de conductores."""
+    return es_app
 
 
 def enviar_video_registro_app():

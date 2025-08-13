@@ -16,7 +16,9 @@ from .prompts import (
 )
 from .state import TransportistaState
 from .tools import (
-    obtener_tipo_de_solicitud,
+    es_consulta_manifiestos,
+    es_consulta_enturnamientos,
+    es_consulta_app,
     enviar_video_registro_app,
     enviar_video_actualizacion_datos_app,
     enviar_video_enturno_app,
@@ -176,7 +178,9 @@ async def handle_in_progress_transportista(
     Handles the conversation flow for a carrier who is in an in-progress state.
     """
     tools = [
-        obtener_tipo_de_solicitud,
+        es_consulta_manifiestos,
+        es_consulta_enturnamientos,
+        es_consulta_app,
         obtener_ayuda_humana,
         enviar_video_registro_app,
         enviar_video_actualizacion_datos_app,
@@ -195,13 +199,6 @@ async def handle_in_progress_transportista(
 
     # --- Process results ---
 
-    # Handle data collection tool first
-    if "obtener_tipo_de_solicitud" in tool_results:
-        categoria = tool_results.get("obtener_tipo_de_solicitud", {}).get("categoria")
-        if categoria:
-            interaction_data["tipo_de_solicitud"] = categoria
-            await _write_transportista_to_sheet(interaction_data, sheets_service)
-
     # Prioritize terminal/special actions
     if "obtener_ayuda_humana" in tool_results:
         return [
@@ -209,6 +206,42 @@ async def handle_in_progress_transportista(
                 role=InteractionType.MODEL, message=obtener_ayuda_humana()
             )
         ], TransportistaState.HUMAN_ESCALATION, "obtener_ayuda_humana", interaction_data
+
+    # Handle classification tools that provide a direct response
+    if tool_results.get("es_consulta_manifiestos"):
+        interaction_data["tipo_de_solicitud"] = CategoriaTransportista.MANIFIESTOS.value
+        await _write_transportista_to_sheet(interaction_data, sheets_service)
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL, message=PROMPT_PAGO_DE_MANIFIESTOS
+                )
+            ],
+            TransportistaState.CONVERSATION_FINISHED,
+            "es_consulta_manifiestos",
+            interaction_data,
+        )
+
+    if tool_results.get("es_consulta_enturnamientos"):
+        interaction_data[
+            "tipo_de_solicitud"
+        ] = CategoriaTransportista.ENTURNAMIENTOS.value
+        await _write_transportista_to_sheet(interaction_data, sheets_service)
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL, message=PROMPT_ENTURNAMIENTOS
+                )
+            ],
+            TransportistaState.CONVERSATION_FINISHED,
+            "es_consulta_enturnamientos",
+            interaction_data,
+        )
+
+    # Handle app-related queries
+    if tool_results.get("es_consulta_app"):
+        interaction_data["tipo_de_solicitud"] = CategoriaTransportista.APP_CONDUCTORES.value
+        await _write_transportista_to_sheet(interaction_data, sheets_service)
 
     video_tool_map = {
         "enviar_video_registro_app": "send_video_message",
@@ -219,46 +252,27 @@ async def handle_in_progress_transportista(
     for tool, call_name in video_tool_map.items():
         if tool in tool_results:
             interaction_data["video_to_send"] = tool_results[tool]
+            # Ensure classification is logged even if only video tool is called
+            if interaction_data.get("tipo_de_solicitud") != CategoriaTransportista.APP_CONDUCTORES.value:
+                interaction_data["tipo_de_solicitud"] = CategoriaTransportista.APP_CONDUCTORES.value
+                await _write_transportista_to_sheet(interaction_data, sheets_service)
             return [], TransportistaState.VIDEO_SENT, call_name, interaction_data
 
-    # If there's a text response, it takes precedence (e.g., asking for clarification)
+    # If there's a text response, it's for app clarification
     if text_response:
-        final_tool_call = tool_call_names[0] if tool_call_names else None
-        return (
-            [InteractionMessage(role=InteractionType.MODEL, message=text_response)],
-            TransportistaState.AWAITING_REQUEST_TYPE,
-            final_tool_call,
-            interaction_data,
-        )
-
-    # Handle tools that generate a text response if no direct text_response was given
-    if "obtener_tipo_de_solicitud" in tool_results:
-        categoria = tool_results.get("obtener_tipo_de_solicitud", {}).get("categoria")
-        if categoria == CategoriaTransportista.MANIFIESTOS.value:
+        # This should only happen if es_consulta_app was called
+        if tool_results.get("es_consulta_app"):
             return (
-                [
-                    InteractionMessage(
-                        role=InteractionType.MODEL, message=PROMPT_PAGO_DE_MANIFIESTOS
-                    )
-                ],
-                TransportistaState.CONVERSATION_FINISHED,
-                "obtener_tipo_de_solicitud",
-                interaction_data,
-            )
-        elif categoria == CategoriaTransportista.ENTURNAMIENTOS.value:
-            return (
-                [
-                    InteractionMessage(
-                        role=InteractionType.MODEL, message=PROMPT_ENTURNAMIENTOS
-                    )
-                ],
-                TransportistaState.CONVERSATION_FINISHED,
-                "obtener_tipo_de_solicitud",
+                [InteractionMessage(role=InteractionType.MODEL, message=text_response)],
+                TransportistaState.AWAITING_REQUEST_TYPE,
+                "es_consulta_app",
                 interaction_data,
             )
 
     # Fallback to human if no other action was taken
-    logger.warning("Transportista workflow did not result in a clear action. Escalating.")
+    logger.warning(
+        "Transportista workflow did not result in a clear action. Escalating."
+    )
     return (
         [
             InteractionMessage(
