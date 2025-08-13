@@ -36,7 +36,7 @@ Tu tarea es analizar el mensaje del usuario y realizar dos acciones críticas en
     - **Ejemplos de frases:** "necesito cotizar un envío", "qué servicios ofrecen", "queremos contratar sus servicios de transporte".
 
 2.  **CLIENTE_ACTIVO** - Clientes existentes que consultan sobre:
-    - **Trazabilidad de envíos:** Preguntas sobre el estado de una entrega, ubicación de mercancía, dónde está un vehículo, prueba de entrega, remesas o manifiestos.
+    - **Trazabilidad de envíos:** Preguntas sobre el estado de una entrega, ubicación de mercancía, dónde está un vehículo, prueba de entrega o remesas.
     - **Gestión de Cartera y Pagos:** Consultas sobre bloqueos de cuenta por pagos pendientes, acuerdos de pago o conciliaciones de cartera.
     - **Facturación:** Dudas sobre el cobro de un servicio, valores facturados o discrepancias en una factura.
     - **Soporte General:** Cualquier otra pregunta relacionada con un servicio en curso que no encaje en las categorías anteriores.

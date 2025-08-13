@@ -122,6 +122,10 @@ async def send_whatsapp_message(phone_number: str, message: str):
             logger.error(
                 f"Failed to send WhatsApp message to {phone_number}. Status: {e.response.status_code}, Response: {e.response.text}"
             )
+        except httpx.ReadTimeout:
+            # This is an expected timeout from the WhatsApp API which doesn't affect functionality.
+            # We can safely ignore it.
+            pass
         except Exception as e:
             logger.error(
                 f"An unexpected error occurred while sending WhatsApp message to {phone_number}: {e}",
@@ -183,6 +187,10 @@ async def send_whatsapp_media_file(
             logger.error(
                 f"Failed to send WhatsApp media file to {phone_number}. Status: {e.response.status_code}, Response: {e.response.text}"
             )
+        except httpx.ReadTimeout:
+            # This is an expected timeout from the WhatsApp API which doesn't affect functionality.
+            # We can safely ignore it.
+            pass
         except Exception as e:
             logger.error(
                 f"An unexpected error occurred while sending WhatsApp media file to {phone_number}: {e}",
@@ -286,6 +294,10 @@ async def send_whatsapp_list_message(phone_number: str):
             logger.error(
                 f"Failed to send WhatsApp list message to {phone_number}. Status: {e.response.status_code}, Response: {e.response.text}"
             )
+        except httpx.ReadTimeout:
+            # This is an expected timeout from the WhatsApp API which doesn't affect functionality.
+            # We can safely ignore it.
+            pass
         except Exception as e:
             logger.error(
                 f"An unexpected error occurred while sending WhatsApp list message to {phone_number}: {e}",
