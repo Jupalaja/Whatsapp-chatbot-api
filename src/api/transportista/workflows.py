@@ -282,16 +282,14 @@ async def handle_in_progress_transportista(
                 interaction_data,
             )
 
-    # If there's a text response, it's for app clarification
+    # If there's a text response, it's for app clarification or ambiguity resolution
     if text_response:
-        # This should only happen if es_consulta_app was called
-        if tool_results.get("es_consulta_app"):
-            return (
-                [InteractionMessage(role=InteractionType.MODEL, message=text_response)],
-                TransportistaState.AWAITING_REQUEST_TYPE,
-                "es_consulta_app",
-                interaction_data,
-            )
+        return (
+            [InteractionMessage(role=InteractionType.MODEL, message=text_response)],
+            TransportistaState.AWAITING_REQUEST_TYPE,
+            "es_consulta_app" if tool_results.get("es_consulta_app") else None,
+            interaction_data,
+        )
 
     # Fallback to human if no other action was taken
     logger.warning(
