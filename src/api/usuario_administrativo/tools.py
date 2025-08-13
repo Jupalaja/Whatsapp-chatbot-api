@@ -1,13 +1,8 @@
-from src.shared.enums import CategoriaUsuarioAdministrativo
+def es_consulta_retefuente(es_retefuente: bool) -> bool:
+    """Llama a esta función con `es_retefuente=True` si la consulta tiene que ver con solicitud de certificados de retefuente (Retención en la fuente)."""
+    return es_retefuente
 
 
-def obtener_tipo_de_necesidad(categoria: str) -> dict:
-    """
-    Clasifica la consulta de un usuario administrativo en una de las categorías predefinidas.
-    El modelo debe analizar la consulta y llamar a esta función con el valor correspondiente del enumerado `CategoriaUsuarioAdministrativo`.
-
-    Args:
-        categoria: La categoría de la consulta del usuario.
-    """
-    valid_categoria = CategoriaUsuarioAdministrativo(categoria)
-    return {"categoria": valid_categoria.value}
+def es_consulta_certificado_laboral(es_certificado_laboral: bool) -> bool:
+    """Llama a esta función con `es_certificado_laboral=True` si la consulta tiene que ver con solicitud de certificados laborales."""
+    return es_certificado_laboral

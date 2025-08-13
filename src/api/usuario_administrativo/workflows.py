@@ -3,7 +3,6 @@ from typing import Optional, Tuple
 from datetime import datetime
 
 import google.genai as genai
-from google.genai import types, errors
 
 from .prompts import (
     USUARIO_ADMINISTRATIVO_SYSTEM_PROMPT,
@@ -11,15 +10,13 @@ from .prompts import (
     PROMPT_CERTIFICADO_LABORAL,
 )
 from .state import UsuarioAdministrativoState
-from .tools import obtener_tipo_de_necesidad
+from .tools import es_consulta_retefuente, es_consulta_certificado_laboral
 from src.config import settings
-from src.shared.constants import GEMINI_MODEL
 from src.shared.enums import InteractionType, CategoriaUsuarioAdministrativo
 from src.shared.schemas import InteractionMessage
 from src.shared.tools import obtener_ayuda_humana
-from src.shared.utils.history import get_genai_history
 from src.services.google_sheets import GoogleSheetsService
-from src.shared.utils.functions import get_response_text, invoke_model_with_retries
+from src.shared.utils.functions import execute_tool_calls_and_get_response
 
 logger = logging.getLogger(__name__)
 
@@ -65,88 +62,83 @@ async def handle_in_progress_usuario_administrativo(
     sheets_service: Optional[GoogleSheetsService],
     interaction_data: dict,
 ) -> Tuple[list[InteractionMessage], UsuarioAdministrativoState, Optional[str], dict]:
-    genai_history = await get_genai_history(history_messages)
-    model = GEMINI_MODEL
-
     tools = [
-        obtener_tipo_de_necesidad,
+        es_consulta_retefuente,
+        es_consulta_certificado_laboral,
         obtener_ayuda_humana,
     ]
 
-    config = types.GenerateContentConfig(
-        tools=tools,
-        system_instruction=USUARIO_ADMINISTRATIVO_SYSTEM_PROMPT,
-        temperature=0.0,
-        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+    (
+        text_response,
+        tool_results,
+        tool_call_names,
+        _,
+    ) = await execute_tool_calls_and_get_response(
+        history_messages, client, tools, USUARIO_ADMINISTRATIVO_SYSTEM_PROMPT
     )
 
-    try:
-        response = await invoke_model_with_retries(
-            client.aio.models.generate_content,
-            model=model, contents=genai_history, config=config
-        )
-    except errors.ServerError as e:
-        logger.error(f"Gemini API Server Error after retries: {e}", exc_info=True)
-        assistant_message_text = obtener_ayuda_humana()
-        tool_call_name = "obtener_ayuda_humana"
-        next_state = UsuarioAdministrativoState.HUMAN_ESCALATION
-        assistant_message = InteractionMessage(
-            role=InteractionType.MODEL, message=assistant_message_text
-        )
-        return [assistant_message], next_state, tool_call_name, interaction_data
-
-    assistant_message = None
-    tool_call_name = None
-    next_state = UsuarioAdministrativoState.AWAITING_NECESITY_TYPE
-
-    if response.function_calls:
-        function_call = response.function_calls[0]
-        tool_call_name = function_call.name
-
-        if function_call.name == "obtener_tipo_de_necesidad":
-            categoria = function_call.args.get("categoria")
-            interaction_data["tipo_de_necesidad"] = categoria
-
-            if categoria == CategoriaUsuarioAdministrativo.RETEFUENTE.value:
-                assistant_message = InteractionMessage(
-                    role=InteractionType.MODEL, message=PROMPT_RETEFUENTE
-                )
-                next_state = UsuarioAdministrativoState.CONVERSATION_FINISHED
-            elif categoria == CategoriaUsuarioAdministrativo.CERTIFICADO_LABORAL.value:
-                assistant_message = InteractionMessage(
-                    role=InteractionType.MODEL, message=PROMPT_CERTIFICADO_LABORAL
-                )
-                next_state = UsuarioAdministrativoState.CONVERSATION_FINISHED
-            else:
-                assistant_message = InteractionMessage(
+    if "obtener_ayuda_humana" in tool_results:
+        return (
+            [
+                InteractionMessage(
                     role=InteractionType.MODEL, message=obtener_ayuda_humana()
                 )
-                tool_call_name = "obtener_ayuda_humana"
-                next_state = UsuarioAdministrativoState.HUMAN_ESCALATION
+            ],
+            UsuarioAdministrativoState.HUMAN_ESCALATION,
+            "obtener_ayuda_humana",
+            interaction_data,
+        )
 
-            if next_state == UsuarioAdministrativoState.CONVERSATION_FINISHED:
-                await _write_usuario_administrativo_to_sheet(
-                    interaction_data, sheets_service
+    if tool_results.get("es_consulta_retefuente"):
+        interaction_data[
+            "tipo_de_necesidad"
+        ] = CategoriaUsuarioAdministrativo.RETEFUENTE.value
+        await _write_usuario_administrativo_to_sheet(interaction_data, sheets_service)
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL, message=PROMPT_RETEFUENTE
                 )
+            ],
+            UsuarioAdministrativoState.CONVERSATION_FINISHED,
+            "es_consulta_retefuente",
+            interaction_data,
+        )
 
-        elif function_call.name == "obtener_ayuda_humana":
-            assistant_message = InteractionMessage(
+    if tool_results.get("es_consulta_certificado_laboral"):
+        interaction_data[
+            "tipo_de_necesidad"
+        ] = CategoriaUsuarioAdministrativo.CERTIFICADO_LABORAL.value
+        await _write_usuario_administrativo_to_sheet(interaction_data, sheets_service)
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL, message=PROMPT_CERTIFICADO_LABORAL
+                )
+            ],
+            UsuarioAdministrativoState.CONVERSATION_FINISHED,
+            "es_consulta_certificado_laboral",
+            interaction_data,
+        )
+
+    if text_response:
+        return (
+            [InteractionMessage(role=InteractionType.MODEL, message=text_response)],
+            UsuarioAdministrativoState.AWAITING_NECESITY_TYPE,
+            None,
+            interaction_data,
+        )
+
+    logger.warning(
+        "Usuario administrativo workflow did not result in a clear action. Escalating."
+    )
+    return (
+        [
+            InteractionMessage(
                 role=InteractionType.MODEL, message=obtener_ayuda_humana()
             )
-            next_state = UsuarioAdministrativoState.HUMAN_ESCALATION
-
-    if not assistant_message:
-        assistant_message_text = get_response_text(response)
-        if assistant_message_text:
-            assistant_message = InteractionMessage(
-                role=InteractionType.MODEL, message=assistant_message_text
-            )
-            next_state = UsuarioAdministrativoState.AWAITING_NECESITY_TYPE
-        else:
-            assistant_message = InteractionMessage(
-                role=InteractionType.MODEL, message=obtener_ayuda_humana()
-            )
-            tool_call_name = "obtener_ayuda_humana"
-            next_state = UsuarioAdministrativoState.HUMAN_ESCALATION
-
-    return [assistant_message], next_state, tool_call_name, interaction_data
+        ],
+        UsuarioAdministrativoState.HUMAN_ESCALATION,
+        "obtener_ayuda_humana",
+        interaction_data,
+    )
