@@ -13,6 +13,7 @@ from .prompts import (
     PROMPT_VIDEO_ACTUALIZACION_DATOS_INSTRUCTIONS,
     PROMPT_VIDEO_CREAR_TURNO_INSTRUCTIONS,
     PROMPT_VIDEO_REPORTE_EVENTOS_INSTRUCTIONS,
+    PROMPT_FALLBACK_VIDEO,
 )
 from .state import TransportistaState
 from .tools import (
@@ -251,12 +252,35 @@ async def handle_in_progress_transportista(
     }
     for tool, call_name in video_tool_map.items():
         if tool in tool_results:
-            interaction_data["video_to_send"] = tool_results[tool]
+            video_info = tool_results[tool]
             # Ensure classification is logged even if only video tool is called
-            if interaction_data.get("tipo_de_solicitud") != CategoriaTransportista.APP_CONDUCTORES.value:
-                interaction_data["tipo_de_solicitud"] = CategoriaTransportista.APP_CONDUCTORES.value
+            if (
+                interaction_data.get("tipo_de_solicitud")
+                != CategoriaTransportista.APP_CONDUCTORES.value
+            ):
+                interaction_data[
+                    "tipo_de_solicitud"
+                ] = CategoriaTransportista.APP_CONDUCTORES.value
                 await _write_transportista_to_sheet(interaction_data, sheets_service)
-            return [], TransportistaState.VIDEO_SENT, call_name, interaction_data
+
+            # Use the conversational text response if available, otherwise use the video caption.
+            message_text = text_response or video_info.get("caption")
+            if not message_text:
+                logger.warning(
+                    f"No text_response or caption for video tool {tool}. Using default message."
+                )
+                message_text = PROMPT_FALLBACK_VIDEO
+
+            # Update the caption in the video info to match the final message text
+            video_info["caption"] = message_text
+            interaction_data["video_to_send"] = video_info
+
+            return (
+                [InteractionMessage(role=InteractionType.MODEL, message=message_text)],
+                TransportistaState.VIDEO_SENT,
+                call_name,
+                interaction_data,
+            )
 
     # If there's a text response, it's for app clarification
     if text_response:

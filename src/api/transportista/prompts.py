@@ -19,7 +19,7 @@ Eres Sotobot, el asistente virtual de Botero Soto. Tu objetivo es identificar la
 
 PROMPT_PAGO_DE_MANIFIESTOS = "Si tiene inconvenientes con pagos o manifiestos, comuníquese con *Laura Isabel Olarte Muñoz* a través del correo *liolarte@boterosoto.com.co* o al teléfono *576 5555 ext. 1568.*"
 PROMPT_ENTURNAMIENTOS = "Si tiene alguna duda sobre enturnamientos, reporte de eventos esperados e inesperados, registro de nuevos usuarios o actualización de datos, puede comunicarse con *Mario de Jesús González* al *311 383 6365* o con *Eleidis Paola Tenorio* al *322 250 5302.*"
-
+PROMPT_FALLBACK_VIDEO= "Este es un video con más información al respecto"
 PROMPT_VIDEO_REGISTRO_USUARIO_NUEVO_INSTRUCTIONS = """
 Claro que sí, aquí tienes una guía paso a paso para actualizar tu información en la aplicación Botero Soto Conductores:
 
