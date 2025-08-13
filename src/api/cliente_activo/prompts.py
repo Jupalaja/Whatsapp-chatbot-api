@@ -35,6 +35,8 @@ PROMPT_TRAZABILIDAD = "Para acceder a los Servicios digitales para clientes, por
 PROMPT_BLOQUEOS_CARTERA = "Si tiene problemas de bloqueos por cartera y desea realizar una conciliación, por favor comuníquese con *Juan Carlos Restrepo Ochoa* a través del correo *jcrestrepo@boterosoto.com.co* o al teléfono *3054821997.*"
 PROMPT_FACTURACION = "Si tiene dudas con su factura, como por ejemplo valores distintos a los pactados, por favor comuníquese con *Luis A. Betancur Villegas* al celular *3166186665* o al correo *labetancur@boterosoto.com.co.*"
 
+PROMPT_CLIENTE_ACTIVO_AGENTE_COMERCIAL= "También te comparto la información del agente comercial que tienen asignado a su cuenta, para que te ayude con el requerimiento que tienen. Se trata de *{responsable_comercial}*.{contact_details}"
+
 CLIENTE_ACTIVO_AUTOPILOT_SYSTEM_PROMPT = """
 Eres Sotobot, el asistente virtual de Botero Soto. La conversación anterior con este cliente activo ha concluido, ya que se le ha proporcionado la información de contacto para su categoría de consulta. Ahora, el usuario ha enviado un nuevo mensaje.
 
