@@ -442,6 +442,8 @@ async def handle_in_progress_transportista(
                 "tipo_de_solicitud"
             ] = CategoriaTransportista.APP_CONDUCTORES.value
 
+        await _write_transportista_to_sheet(interaction_data, sheets_service)
+
         # Only one video can be sent at a time
         video_tool_name = video_tool_names[0]
         call_name = video_tool_map[video_tool_name]
@@ -475,6 +477,8 @@ async def handle_in_progress_transportista(
         interaction_data[
             "tipo_de_solicitud"
         ] = CategoriaTransportista.APP_CONDUCTORES.value
+
+        await _write_transportista_to_sheet(interaction_data, sheets_service)
 
         # If this is the second time we have a generic app query, escalate.
         if interaction_data["app_query_turn_count"] > 1:
