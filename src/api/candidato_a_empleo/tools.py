@@ -11,3 +11,13 @@ def obtener_vacante(vacante: Optional[str] = None) -> Optional[str]:
         vacante: La vacante a la que aplica el candidato. Este campo es opcional.
     """
     return vacante
+
+
+def obtener_informacion_candidato(
+    nombre: Optional[str] = None, cedula: Optional[str] = None
+):
+    """
+    Se debe llamar a esta función para guardar el nombre y la cédula del candidato.
+    El modelo debe preguntar por esta información después de haber obtenido la vacante a la que aplica el candidato.
+    """
+    return {k: v for k, v in locals().items() if v is not None}
