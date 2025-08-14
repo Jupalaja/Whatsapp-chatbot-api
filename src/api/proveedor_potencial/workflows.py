@@ -22,31 +22,10 @@ from src.services.google_sheets import GoogleSheetsService
 from src.shared.utils.functions import (
     get_response_text,
     invoke_model_with_retries,
+    get_final_text_response,
 )
 
 logger = logging.getLogger(__name__)
-
-
-async def _get_final_text_response(
-    history_messages: list[InteractionMessage],
-    client: genai.Client,
-    system_prompt: str,
-) -> str:
-    """Gets a final text response from the model without tools."""
-    genai_history = await get_genai_history(history_messages)
-    config = types.GenerateContentConfig(
-        system_instruction=system_prompt,
-        temperature=0.0,
-    )
-    try:
-        response = await invoke_model_with_retries(
-            client.aio.models.generate_content,
-            model=GEMINI_MODEL, contents=genai_history, config=config
-        )
-        return get_response_text(response)
-    except errors.ServerError as e:
-        logger.error(f"Gemini API Server Error after retries: {e}", exc_info=True)
-        return obtener_ayuda_humana()
 
 
 async def _write_proveedor_potencial_to_sheet(
@@ -217,7 +196,7 @@ async def handle_in_progress_proveedor_potencial(
             interaction_data["tipo_de_servicio"] = tipo_de_servicio
             next_state = ProveedorPotencialState.AWAITING_COMPANY_INFO
 
-            assistant_message_text = await _get_final_text_response(
+            assistant_message_text = await get_final_text_response(
                 history_messages, client, PROVEEDOR_POTENCIAL_GATHER_INFO_SYSTEM_PROMPT
             )
             if not assistant_message_text:

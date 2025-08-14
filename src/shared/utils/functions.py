@@ -382,3 +382,24 @@ async def handle_in_progress_conversation(
         role=InteractionType.MODEL, message=assistant_message_text
     )
     return [assistant_message], next_state, tool_call_name, interaction_data
+
+async def get_final_text_response(
+        history_messages: list[InteractionMessage],
+        client: genai.Client,
+        system_prompt: str,
+) -> str:
+    """Gets a final text response from the model without tools."""
+    genai_history = await get_genai_history(history_messages)
+    config = types.GenerateContentConfig(
+        system_instruction=system_prompt,
+        temperature=0.0,
+    )
+    try:
+        response = await invoke_model_with_retries(
+            client.aio.models.generate_content,
+            model=GEMINI_MODEL, contents=genai_history, config=config
+        )
+        return get_response_text(response)
+    except errors.ServerError as e:
+        logger.error(f"Gemini API Server Error after retries: {e}", exc_info=True)
+        return obtener_ayuda_humana()

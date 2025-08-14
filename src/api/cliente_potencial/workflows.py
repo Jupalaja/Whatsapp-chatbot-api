@@ -36,7 +36,6 @@ from src.shared.constants import GEMINI_MODEL
 from src.shared.enums import InteractionType
 from src.shared.schemas import InteractionMessage
 from src.shared.tools import obtener_ayuda_humana
-from src.shared.utils.history import get_genai_history
 from src.services.google_sheets import GoogleSheetsService
 from src.shared.utils.validations import (
     es_ciudad_valida,
@@ -50,9 +49,9 @@ from src.shared.prompts import (
     PROMPT_SERVICIO_NO_PRESTADO_PAQUETEO,
 )
 from src.shared.utils.functions import (
-    get_response_text,
     invoke_model_with_retries,
     execute_tool_calls_and_get_response,
+    get_final_text_response,
 )
 
 logger = logging.getLogger(__name__)
@@ -146,28 +145,6 @@ async def _write_cliente_potencial_to_sheet(
 
     except Exception as e:
         logger.error(f"Failed to write to Google Sheet: {e}", exc_info=True)
-
-
-async def _get_final_text_response(
-        history_messages: list[InteractionMessage],
-        client: genai.Client,
-        system_prompt: str,
-) -> str:
-    """Gets a final text response from the model without tools."""
-    genai_history = await get_genai_history(history_messages)
-    config = types.GenerateContentConfig(
-        system_instruction=system_prompt,
-        temperature=0.0,
-    )
-    try:
-        response = await invoke_model_with_retries(
-            client.aio.models.generate_content,
-            model=GEMINI_MODEL, contents=genai_history, config=config
-        )
-        return get_response_text(response)
-    except errors.ServerError as e:
-        logger.error(f"Gemini API Server Error after retries: {e}", exc_info=True)
-        return obtener_ayuda_humana()
 
 
 async def _clean_commercial_agent_data(
@@ -524,7 +501,7 @@ async def _workflow_awaiting_nit(
     if "buscar_nit" in tool_results:
         # After finding the NIT, we need to ask for the next piece of information
         # using the more specific prompt that defines the question order.
-        assistant_message_text = await _get_final_text_response(
+        assistant_message_text = await get_final_text_response(
             history_messages, client, CLIENTE_POTENCIAL_GATHER_INFO_SYSTEM_PROMPT
         )
 
@@ -542,7 +519,7 @@ async def _workflow_awaiting_nit(
         )
 
     if "es_persona_natural" in tool_results:
-        assistant_message_text = await _get_final_text_response(
+        assistant_message_text = await get_final_text_response(
             history_messages, client, CLIENTE_POTENCIAL_SYSTEM_PROMPT
         )
         return (
