@@ -239,55 +239,113 @@ async def handle_in_progress_transportista(
             interaction_data,
         )
 
-    # Handle app-related queries
-    if tool_results.get("es_consulta_app"):
-        interaction_data["tipo_de_solicitud"] = CategoriaTransportista.APP_CONDUCTORES.value
-        await _write_transportista_to_sheet(interaction_data, sheets_service)
-
     video_tool_map = {
         "enviar_video_registro_app": "send_video_message",
         "enviar_video_actualizacion_datos_app": "send_video_message",
         "enviar_video_enturno_app": "send_video_message",
         "enviar_video_reporte_eventos_app": "send_video_message",
     }
-    for tool, call_name in video_tool_map.items():
-        if tool in tool_results:
-            video_info = tool_results[tool]
-            # Ensure classification is logged even if only video tool is called
-            if (
-                interaction_data.get("tipo_de_solicitud")
-                != CategoriaTransportista.APP_CONDUCTORES.value
-            ):
-                interaction_data[
-                    "tipo_de_solicitud"
-                ] = CategoriaTransportista.APP_CONDUCTORES.value
-                await _write_transportista_to_sheet(interaction_data, sheets_service)
+    video_tool_names = [tool for tool in video_tool_map if tool in tool_results]
 
-            # Use the conversational text response if available, otherwise use the video caption.
-            message_text = text_response or video_info.get("caption")
-            if not message_text:
-                logger.warning(
-                    f"No text_response or caption for video tool {tool}. Using default message."
-                )
-                message_text = PROMPT_FALLBACK_VIDEO
+    # Handle specific video-based app queries
+    if video_tool_names:
+        # It's an app query, so log it if not already logged.
+        if (
+            interaction_data.get("tipo_de_solicitud")
+            != CategoriaTransportista.APP_CONDUCTORES.value
+        ):
+            interaction_data[
+                "tipo_de_solicitud"
+            ] = CategoriaTransportista.APP_CONDUCTORES.value
+            await _write_transportista_to_sheet(interaction_data, sheets_service)
 
-            # Update the caption in the video info to match the final message text
-            video_info["caption"] = message_text
-            interaction_data["video_to_send"] = video_info
+        # Only one video can be sent at a time
+        video_tool_name = video_tool_names[0]
+        call_name = video_tool_map[video_tool_name]
 
+        video_info = tool_results[video_tool_name]
+        message_text = text_response or video_info.get("caption")
+        if not message_text:
+            logger.warning(
+                f"No text_response or caption for video tool {video_tool_name}. Using default message."
+            )
+            message_text = PROMPT_FALLBACK_VIDEO
+
+        # Update the caption in the video info to match the final message text
+        video_info["caption"] = message_text
+        interaction_data["video_to_send"] = video_info
+
+        return (
+            [InteractionMessage(role=InteractionType.MODEL, message=message_text)],
+            TransportistaState.VIDEO_SENT,
+            call_name,
+            interaction_data,
+        )
+
+    # Handle generic app queries that don't have a specific video tool
+    if tool_results.get("es_consulta_app"):
+        # We know from the check above that no specific video tool was called.
+        if "app_query_turn_count" not in interaction_data:
+            interaction_data["app_query_turn_count"] = 0
+
+        interaction_data["app_query_turn_count"] += 1
+        interaction_data[
+            "tipo_de_solicitud"
+        ] = CategoriaTransportista.APP_CONDUCTORES.value
+        await _write_transportista_to_sheet(interaction_data, sheets_service)
+
+        # If this is the second time we have a generic app query, escalate.
+        if interaction_data["app_query_turn_count"] > 1:
+            logger.warning(
+                f"Generic app query detected for the second time. Escalating to human. Query: '{history_messages[-1].message}'"
+            )
+            # Cleanup
+            interaction_data.pop("app_query_turn_count", None)
             return (
-                [InteractionMessage(role=InteractionType.MODEL, message=message_text)],
-                TransportistaState.VIDEO_SENT,
-                call_name,
+                [
+                    InteractionMessage(
+                        role=InteractionType.MODEL, message=obtener_ayuda_humana()
+                    )
+                ],
+                TransportistaState.HUMAN_ESCALATION,
+                "obtener_ayuda_humana",
                 interaction_data,
             )
 
-    # If there's a text response, it's for app clarification or ambiguity resolution
+        # First generic app query, if there is a text response, use it to ask for more details.
+        if text_response:
+            return (
+                [InteractionMessage(role=InteractionType.MODEL, message=text_response)],
+                TransportistaState.AWAITING_REQUEST_TYPE,
+                "es_consulta_app",
+                interaction_data,
+            )
+        # If no text response on first try, this is unexpected. Escalate.
+        else:
+            logger.warning(
+                f"Generic app query detected but no text response from model on first try. Escalating. Query: '{history_messages[-1].message}'"
+            )
+            return (
+                [
+                    InteractionMessage(
+                        role=InteractionType.MODEL, message=obtener_ayuda_humana()
+                    )
+                ],
+                TransportistaState.HUMAN_ESCALATION,
+                "obtener_ayuda_humana",
+                interaction_data,
+            )
+
+    # If we are here, it's not a generic app query. Reset counter if it exists.
+    if "app_query_turn_count" in interaction_data:
+        interaction_data.pop("app_query_turn_count", None)
+
+    # If there's a text response, it's likely for ambiguity resolution (e.g., "enturnamiento" without "app")
     if text_response:
         return (
             [InteractionMessage(role=InteractionType.MODEL, message=text_response)],
             TransportistaState.AWAITING_REQUEST_TYPE,
-            "es_consulta_app" if tool_results.get("es_consulta_app") else None,
+            None,
             interaction_data,
         )
 
