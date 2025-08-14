@@ -462,7 +462,7 @@ async def _route_to_specific_handler(
 
         elif classified_as == CategoriaClasificacion.CANDIDATO_A_EMPLEO:
             logger.debug(f"Routing to 'candidato_a_empleo' handler for session_id: {interaction_request.sessionId}")
-            current_state = CandidatoAEmpleoState.AWAITING_VACANCY
+            current_state = CandidatoAEmpleoState.AWAITING_CANDIDATE_INFO
             if interaction and interaction.state:
                 current_state = CandidatoAEmpleoState(interaction.state)
                 

@@ -41,7 +41,7 @@ async def handle(
     interaction = await db.get(models.Interaction, interaction_request.sessionId)
 
     history_messages: list[InteractionMessage] = []
-    current_state = CandidatoAEmpleoState.AWAITING_VACANCY
+    current_state = CandidatoAEmpleoState.AWAITING_CANDIDATE_INFO
     interaction_data: Optional[dict] = None
     if interaction:
         history_messages = [

@@ -8,10 +8,9 @@ from google.genai import types, errors
 from .prompts import (
     CANDIDATO_A_EMPLEO_SYSTEM_PROMPT,
     PROMPT_CONTACTO_HOJA_DE_VIDA,
-    CANDIDATO_A_EMPLEO_GATHER_INFO_SYSTEM_PROMPT,
 )
 from .state import CandidatoAEmpleoState
-from .tools import obtener_vacante, obtener_informacion_candidato
+from .tools import obtener_informacion_candidato
 from src.config import settings
 from src.shared.constants import GEMINI_MODEL
 from src.shared.enums import InteractionType
@@ -22,7 +21,6 @@ from src.services.google_sheets import GoogleSheetsService
 from src.shared.utils.functions import (
     get_response_text,
     invoke_model_with_retries,
-    get_final_text_response,
 )
 
 logger = logging.getLogger(__name__)
@@ -65,82 +63,6 @@ async def _write_candidato_a_empleo_to_sheet(
         logger.error(f"Failed to write to Google Sheet: {e}", exc_info=True)
 
 
-async def _workflow_awaiting_candidate_info(
-    history_messages: list[InteractionMessage],
-    client: genai.Client,
-    sheets_service: Optional[GoogleSheetsService],
-    interaction_data: dict,
-) -> Tuple[list[InteractionMessage], CandidatoAEmpleoState, Optional[str], dict]:
-    """Handles the workflow for gathering candidate info."""
-    genai_history = await get_genai_history(history_messages)
-
-    tools = [
-        obtener_informacion_candidato,
-        obtener_ayuda_humana,
-    ]
-
-    config = types.GenerateContentConfig(
-        tools=tools,
-        system_instruction=CANDIDATO_A_EMPLEO_GATHER_INFO_SYSTEM_PROMPT,
-        temperature=0.0,
-        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-    )
-
-    try:
-        response = await invoke_model_with_retries(
-            client.aio.models.generate_content,
-            model=GEMINI_MODEL,
-            contents=genai_history,
-            config=config,
-        )
-    except errors.ServerError as e:
-        logger.error(f"Gemini API Server Error after retries: {e}", exc_info=True)
-        return (
-            [
-                InteractionMessage(
-                    role=InteractionType.MODEL, message=obtener_ayuda_humana()
-                )
-            ],
-            CandidatoAEmpleoState.HUMAN_ESCALATION,
-            "obtener_ayuda_humana",
-            interaction_data,
-        )
-
-    tool_call_name = None
-    if response.function_calls:
-        function_call = response.function_calls[0]
-        tool_call_name = function_call.name
-
-        if function_call.name == "obtener_informacion_candidato":
-            info = dict(function_call.args)
-            interaction_data["nombre"] = info.get("nombre")
-            interaction_data["cedula"] = info.get("cedula")
-
-        elif function_call.name == "obtener_ayuda_humana":
-            return (
-                [
-                    InteractionMessage(
-                        role=InteractionType.MODEL, message=obtener_ayuda_humana()
-                    )
-                ],
-                CandidatoAEmpleoState.HUMAN_ESCALATION,
-                "obtener_ayuda_humana",
-                interaction_data,
-            )
-
-    # After attempting to get info (or not), finish the conversation
-    await _write_candidato_a_empleo_to_sheet(interaction_data, sheets_service)
-    assistant_message = InteractionMessage(
-        role=InteractionType.MODEL, message=PROMPT_CONTACTO_HOJA_DE_VIDA
-    )
-    return (
-        [assistant_message],
-        CandidatoAEmpleoState.CONVERSATION_FINISHED,
-        tool_call_name,
-        interaction_data,
-    )
-
-
 async def handle_in_progress_candidato_a_empleo(
     history_messages: list[InteractionMessage],
     client: genai.Client,
@@ -153,7 +75,7 @@ async def handle_in_progress_candidato_a_empleo(
     genai_history = await get_genai_history(history_messages)
 
     tools = [
-        obtener_vacante,
+        obtener_informacion_candidato,
         obtener_ayuda_humana,
     ]
 
@@ -181,30 +103,21 @@ async def handle_in_progress_candidato_a_empleo(
 
     assistant_message = None
     tool_call_name = None
-    next_state = CandidatoAEmpleoState.AWAITING_VACANCY
+    next_state = CandidatoAEmpleoState.AWAITING_CANDIDATE_INFO
 
     if response.function_calls:
         function_call = response.function_calls[0]
         tool_call_name = function_call.name
 
-        if function_call.name == "obtener_vacante":
-            vacante = function_call.args.get("vacante")
-            interaction_data["vacante"] = vacante
-            next_state = CandidatoAEmpleoState.AWAITING_CANDIDATE_INFO
+        if function_call.name == "obtener_informacion_candidato":
+            info = dict(function_call.args)
+            interaction_data.update({k: v for k, v in info.items() if v is not None})
 
-            assistant_message_text = await get_final_text_response(
-                history_messages, client, CANDIDATO_A_EMPLEO_GATHER_INFO_SYSTEM_PROMPT
-            )
-            if not assistant_message_text:
-                # Fallback in case the model doesn't generate a response
-                assistant_message_text = (
-                    "Para continuar, ¿podrías indicarme tu nombre y número de cédula?"
-                )
-
+            await _write_candidato_a_empleo_to_sheet(interaction_data, sheets_service)
             assistant_message = InteractionMessage(
-                role=InteractionType.MODEL,
-                message=assistant_message_text,
+                role=InteractionType.MODEL, message=PROMPT_CONTACTO_HOJA_DE_VIDA
             )
+            next_state = CandidatoAEmpleoState.CONVERSATION_FINISHED
 
         elif function_call.name == "obtener_ayuda_humana":
             assistant_message = InteractionMessage(
@@ -215,7 +128,7 @@ async def handle_in_progress_candidato_a_empleo(
     if not assistant_message:
         assistant_message_text = (
             get_response_text(response)
-            or "Por favor, especifica a qué vacante te gustaría aplicar."
+            or "Para continuar, ¿podrías indicarme tu nombre y número de cédula?"
         )
         assistant_message = InteractionMessage(
             role=InteractionType.MODEL, message=assistant_message_text

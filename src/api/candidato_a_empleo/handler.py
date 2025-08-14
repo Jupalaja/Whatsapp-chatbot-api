@@ -7,8 +7,7 @@ from src.shared.state import GlobalState
 from .prompts import CANDIDATO_A_EMPLEO_AUTOPILOT_SYSTEM_PROMPT
 from .state import CandidatoAEmpleoState
 from .workflows import (
-    handle_in_progress_candidato_a_empleo,
-    _workflow_awaiting_candidate_info
+    handle_in_progress_candidato_a_empleo
 )
 from src.services.google_sheets import GoogleSheetsService
 from src.shared.schemas import InteractionMessage
@@ -43,13 +42,8 @@ async def handle_candidato_a_empleo(
             autopilot_system_prompt=CANDIDATO_A_EMPLEO_AUTOPILOT_SYSTEM_PROMPT,
         )
 
-    if current_state == CandidatoAEmpleoState.AWAITING_VACANCY:
-        return await handle_in_progress_candidato_a_empleo(
-            history_messages, client, sheets_service, interaction_data
-        )
-
     if current_state == CandidatoAEmpleoState.AWAITING_CANDIDATE_INFO:
-        return await _workflow_awaiting_candidate_info(
+        return await handle_in_progress_candidato_a_empleo(
             history_messages, client, sheets_service, interaction_data
         )
 
