@@ -3,11 +3,13 @@ from typing import Optional, Tuple
 from datetime import datetime
 
 import google.genai as genai
+from google.genai import types, errors
 
 from .prompts import (
     TRANSPORTISTA_SYSTEM_PROMPT,
     PROMPT_PAGO_DE_MANIFIESTOS,
     PROMPT_ENTURNAMIENTOS,
+    TRANSPORTISTA_GATHER_INFO_SYSTEM_PROMPT,
     TRANSPORTISTA_VIDEO_SENT_SYSTEM_PROMPT,
     PROMPT_VIDEO_REGISTRO_USUARIO_NUEVO_INSTRUCTIONS,
     PROMPT_VIDEO_ACTUALIZACION_DATOS_INSTRUCTIONS,
@@ -20,18 +22,25 @@ from .tools import (
     es_consulta_manifiestos,
     es_consulta_enturnamientos,
     es_consulta_app,
+    obtener_informacion_transportista,
     enviar_video_registro_app,
     enviar_video_actualizacion_datos_app,
     enviar_video_enturno_app,
     enviar_video_reporte_eventos_app,
 )
 from src.config import settings
+from src.shared.constants import GEMINI_MODEL
 from src.shared.state import GlobalState
 from src.shared.enums import InteractionType, CategoriaTransportista
 from src.shared.schemas import InteractionMessage
 from src.shared.tools import obtener_ayuda_humana, nueva_interaccion_requerida
 from src.services.google_sheets import GoogleSheetsService
-from src.shared.utils.functions import execute_tool_calls_and_get_response
+from src.shared.utils.functions import (
+    execute_tool_calls_and_get_response,
+    get_final_text_response,
+    invoke_model_with_retries,
+)
+from src.shared.utils.history import get_genai_history
 
 logger = logging.getLogger(__name__)
 
@@ -63,11 +72,13 @@ async def _write_transportista_to_sheet(
 
         fecha_perfilacion = datetime.now().strftime("%d/%m/%Y")
         tipo_de_solicitud = interaction_data.get("tipo_de_solicitud", "")
+        placa_vehiculo = interaction_data.get("placa_vehiculo", "")
+        nombre = interaction_data.get("nombre", "")
 
         row_to_append = [
             fecha_perfilacion,
-            "",
-            "",
+            placa_vehiculo,  # AQUI va la placa
+            nombre,  # AQUI VA EL NOMBRE
             tipo_de_solicitud,
         ]
 
@@ -76,6 +87,100 @@ async def _write_transportista_to_sheet(
 
     except Exception as e:
         logger.error(f"Failed to write to Google Sheet: {e}", exc_info=True)
+
+
+async def _workflow_awaiting_transportista_info(
+    history_messages: list[InteractionMessage],
+    client: genai.Client,
+    sheets_service: Optional[GoogleSheetsService],
+    interaction_data: dict,
+) -> Tuple[list[InteractionMessage], TransportistaState, Optional[str], dict]:
+    """Handles the workflow for gathering info from a carrier."""
+    genai_history = await get_genai_history(history_messages)
+
+    tools = [
+        obtener_informacion_transportista,
+        obtener_ayuda_humana,
+    ]
+
+    config = types.GenerateContentConfig(
+        tools=tools,
+        system_instruction=TRANSPORTISTA_GATHER_INFO_SYSTEM_PROMPT,
+        temperature=0.0,
+        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+    )
+
+    try:
+        response = await invoke_model_with_retries(
+            client.aio.models.generate_content,
+            model=GEMINI_MODEL,
+            contents=genai_history,
+            config=config,
+        )
+    except errors.ServerError as e:
+        logger.error(f"Gemini API Server Error after retries: {e}", exc_info=True)
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL, message=obtener_ayuda_humana()
+                )
+            ],
+            TransportistaState.HUMAN_ESCALATION,
+            "obtener_ayuda_humana",
+            interaction_data,
+        )
+
+    tool_call_name = None
+    if response.function_calls:
+        function_call = response.function_calls[0]
+        tool_call_name = function_call.name
+
+        if function_call.name == "obtener_informacion_transportista":
+            info = dict(function_call.args)
+            interaction_data["placa_vehiculo"] = info.get("placa_vehiculo")
+            interaction_data["nombre"] = info.get("nombre")
+
+        elif function_call.name == "obtener_ayuda_humana":
+            return (
+                [
+                    InteractionMessage(
+                        role=InteractionType.MODEL, message=obtener_ayuda_humana()
+                    )
+                ],
+                TransportistaState.HUMAN_ESCALATION,
+                "obtener_ayuda_humana",
+                interaction_data,
+            )
+
+    await _write_transportista_to_sheet(interaction_data, sheets_service)
+
+    final_prompt = ""
+    tipo_de_solicitud = interaction_data.get("tipo_de_solicitud")
+    if tipo_de_solicitud == CategoriaTransportista.MANIFIESTOS.value:
+        final_prompt = PROMPT_PAGO_DE_MANIFIESTOS
+    elif tipo_de_solicitud == CategoriaTransportista.ENTURNAMIENTOS.value:
+        final_prompt = PROMPT_ENTURNAMIENTOS
+    else:
+        logger.error(
+            f"Could not determine final prompt for tipo_de_solicitud: {tipo_de_solicitud}. Escalating."
+        )
+        final_prompt = obtener_ayuda_humana()
+        return (
+            [InteractionMessage(role=InteractionType.MODEL, message=final_prompt)],
+            TransportistaState.HUMAN_ESCALATION,
+            "obtener_ayuda_humana",
+            interaction_data,
+        )
+
+    assistant_message = InteractionMessage(
+        role=InteractionType.MODEL, message=final_prompt
+    )
+    return (
+        [assistant_message],
+        TransportistaState.CONVERSATION_FINISHED,
+        tool_call_name,
+        interaction_data,
+    )
 
 
 async def _workflow_video_sent(
@@ -211,15 +316,25 @@ async def handle_in_progress_transportista(
     # Handle classification tools that provide a direct response
     if tool_results.get("es_consulta_manifiestos"):
         interaction_data["tipo_de_solicitud"] = CategoriaTransportista.MANIFIESTOS.value
-        await _write_transportista_to_sheet(interaction_data, sheets_service)
+        next_state = TransportistaState.AWAITING_TRANSPORTISTA_INFO
+        tool_call_name = "es_consulta_manifiestos"
+
+        assistant_message_text = await get_final_text_response(
+            history_messages, client, TRANSPORTISTA_GATHER_INFO_SYSTEM_PROMPT
+        )
+        if not assistant_message_text:
+            assistant_message_text = (
+                "Para continuar, ¿podrías indicarme tu nombre y la placa del vehículo?"
+            )
+
         return (
             [
                 InteractionMessage(
-                    role=InteractionType.MODEL, message=PROMPT_PAGO_DE_MANIFIESTOS
+                    role=InteractionType.MODEL, message=assistant_message_text
                 )
             ],
-            TransportistaState.CONVERSATION_FINISHED,
-            "es_consulta_manifiestos",
+            next_state,
+            tool_call_name,
             interaction_data,
         )
 
@@ -227,15 +342,25 @@ async def handle_in_progress_transportista(
         interaction_data[
             "tipo_de_solicitud"
         ] = CategoriaTransportista.ENTURNAMIENTOS.value
-        await _write_transportista_to_sheet(interaction_data, sheets_service)
+        next_state = TransportistaState.AWAITING_TRANSPORTISTA_INFO
+        tool_call_name = "es_consulta_enturnamientos"
+
+        assistant_message_text = await get_final_text_response(
+            history_messages, client, TRANSPORTISTA_GATHER_INFO_SYSTEM_PROMPT
+        )
+        if not assistant_message_text:
+            assistant_message_text = (
+                "Para continuar, ¿podrías indicarme tu nombre y la placa del vehículo?"
+            )
+
         return (
             [
                 InteractionMessage(
-                    role=InteractionType.MODEL, message=PROMPT_ENTURNAMIENTOS
+                    role=InteractionType.MODEL, message=assistant_message_text
                 )
             ],
-            TransportistaState.CONVERSATION_FINISHED,
-            "es_consulta_enturnamientos",
+            next_state,
+            tool_call_name,
             interaction_data,
         )
 
@@ -257,7 +382,6 @@ async def handle_in_progress_transportista(
             interaction_data[
                 "tipo_de_solicitud"
             ] = CategoriaTransportista.APP_CONDUCTORES.value
-            await _write_transportista_to_sheet(interaction_data, sheets_service)
 
         # Only one video can be sent at a time
         video_tool_name = video_tool_names[0]
@@ -292,7 +416,6 @@ async def handle_in_progress_transportista(
         interaction_data[
             "tipo_de_solicitud"
         ] = CategoriaTransportista.APP_CONDUCTORES.value
-        await _write_transportista_to_sheet(interaction_data, sheets_service)
 
         # If this is the second time we have a generic app query, escalate.
         if interaction_data["app_query_turn_count"] > 1:

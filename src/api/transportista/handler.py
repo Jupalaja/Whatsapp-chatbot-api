@@ -6,7 +6,11 @@ import google.genai as genai
 from src.shared.state import GlobalState
 from .prompts import TRANSPORTISTA_AUTOPILOT_SYSTEM_PROMPT
 from .state import TransportistaState
-from .workflows import handle_in_progress_transportista, _workflow_video_sent
+from .workflows import (
+    handle_in_progress_transportista,
+    _workflow_video_sent,
+    _workflow_awaiting_transportista_info,
+)
 from src.services.google_sheets import GoogleSheetsService
 from src.shared.schemas import InteractionMessage
 from src.shared.utils.functions import (
@@ -45,6 +49,14 @@ async def handle_transportista(
         return await _workflow_video_sent(
             history_messages=history_messages,
             client=client,
+            interaction_data=interaction_data,
+        )
+
+    if current_state == TransportistaState.AWAITING_TRANSPORTISTA_INFO:
+        return await _workflow_awaiting_transportista_info(
+            history_messages=history_messages,
+            client=client,
+            sheets_service=sheets_service,
             interaction_data=interaction_data,
         )
 
