@@ -288,6 +288,7 @@ async def handle_in_progress_transportista(
         es_consulta_enturnamientos,
         es_consulta_app,
         obtener_ayuda_humana,
+        obtener_informacion_transportista,
         enviar_video_registro_app,
         enviar_video_actualizacion_datos_app,
         enviar_video_enturno_app,
@@ -305,6 +306,12 @@ async def handle_in_progress_transportista(
 
     # --- Process results ---
 
+    # Process information gathering first, as it can happen in parallel
+    if "obtener_informacion_transportista" in tool_results:
+        info = tool_results["obtener_informacion_transportista"]
+        interaction_data.update({k: v for k, v in info.items() if v is not None})
+        logger.info(f"Gathered carrier info in main workflow: {info}")
+
     # Prioritize terminal/special actions
     if "obtener_ayuda_humana" in tool_results:
         return [
@@ -316,15 +323,41 @@ async def handle_in_progress_transportista(
     # Handle classification tools that provide a direct response
     if tool_results.get("es_consulta_manifiestos"):
         interaction_data["tipo_de_solicitud"] = CategoriaTransportista.MANIFIESTOS.value
-        next_state = TransportistaState.AWAITING_TRANSPORTISTA_INFO
         tool_call_name = "es_consulta_manifiestos"
+
+        # Check if we have the necessary info
+        if "nombre" in interaction_data and "placa_vehiculo" in interaction_data:
+            await _write_transportista_to_sheet(interaction_data, sheets_service)
+            return (
+                [
+                    InteractionMessage(
+                        role=InteractionType.MODEL, message=PROMPT_PAGO_DE_MANIFIESTOS
+                    )
+                ],
+                TransportistaState.CONVERSATION_FINISHED,
+                tool_call_name,
+                interaction_data,
+            )
+
+        # If not, move to the info gathering state
+        next_state = TransportistaState.AWAITING_TRANSPORTISTA_INFO
 
         assistant_message_text = await get_final_text_response(
             history_messages, client, TRANSPORTISTA_GATHER_INFO_SYSTEM_PROMPT
         )
         if not assistant_message_text:
-            assistant_message_text = (
-                "Para continuar, ¿podrías indicarme tu nombre y la placa del vehículo?"
+            logger.warning(
+                "Could not generate text for transportista info gathering. Escalating."
+            )
+            return (
+                [
+                    InteractionMessage(
+                        role=InteractionType.MODEL, message=obtener_ayuda_humana()
+                    )
+                ],
+                TransportistaState.HUMAN_ESCALATION,
+                "obtener_ayuda_humana",
+                interaction_data,
             )
 
         return (
@@ -342,15 +375,41 @@ async def handle_in_progress_transportista(
         interaction_data[
             "tipo_de_solicitud"
         ] = CategoriaTransportista.ENTURNAMIENTOS.value
-        next_state = TransportistaState.AWAITING_TRANSPORTISTA_INFO
         tool_call_name = "es_consulta_enturnamientos"
+
+        # Check if we have the necessary info
+        if "nombre" in interaction_data and "placa_vehiculo" in interaction_data:
+            await _write_transportista_to_sheet(interaction_data, sheets_service)
+            return (
+                [
+                    InteractionMessage(
+                        role=InteractionType.MODEL, message=PROMPT_ENTURNAMIENTOS
+                    )
+                ],
+                TransportistaState.CONVERSATION_FINISHED,
+                tool_call_name,
+                interaction_data,
+            )
+
+        # If not, move to the info gathering state
+        next_state = TransportistaState.AWAITING_TRANSPORTISTA_INFO
 
         assistant_message_text = await get_final_text_response(
             history_messages, client, TRANSPORTISTA_GATHER_INFO_SYSTEM_PROMPT
         )
         if not assistant_message_text:
-            assistant_message_text = (
-                "Para continuar, ¿podrías indicarme tu nombre y la placa del vehículo?"
+            logger.warning(
+                "Could not generate text for transportista info gathering. Escalating."
+            )
+            return (
+                [
+                    InteractionMessage(
+                        role=InteractionType.MODEL, message=obtener_ayuda_humana()
+                    )
+                ],
+                TransportistaState.HUMAN_ESCALATION,
+                "obtener_ayuda_humana",
+                interaction_data,
             )
 
         return (
