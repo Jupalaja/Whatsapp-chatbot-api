@@ -51,7 +51,7 @@ async def handle_cliente_potencial(
         )
     if current_state == ClientePotencialState.AWAITING_PERSONA_NATURAL_FREIGHT_INFO:
         return await _workflow_awaiting_persona_natural_freight_info(
-            history_messages, interaction_data, client
+            history_messages, interaction_data, client, sheets_service
         )
     if current_state == ClientePotencialState.CUSTOMER_ASKED_FOR_EMAIL_DATA_SENT:
         return await _workflow_customer_asked_for_email_data_sent(

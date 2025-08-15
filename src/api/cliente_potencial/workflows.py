@@ -435,6 +435,7 @@ async def _workflow_awaiting_nit(
 
     if terminating_tool_name:
         final_message = text_response or tool_results[terminating_tool_name]
+        await _write_cliente_potencial_to_sheet(interaction_data, sheets_service)
         return (
             [
                 InteractionMessage(
@@ -449,6 +450,7 @@ async def _workflow_awaiting_nit(
         )
 
     if "obtener_ayuda_humana" in tool_results:
+        await _write_cliente_potencial_to_sheet(interaction_data, sheets_service)
         return (
             [
                 InteractionMessage(
@@ -561,6 +563,7 @@ async def _workflow_awaiting_persona_natural_freight_info(
         history_messages: list[InteractionMessage],
         interaction_data: dict,
         client: genai.Client,
+        sheets_service: Optional[GoogleSheetsService],
 ) -> Tuple[list[InteractionMessage], ClientePotencialState, Optional[str], dict]:
     """Handles the workflow when waiting for freight info from a natural person."""
     tools = [necesita_agente_de_carga, obtener_ayuda_humana]
@@ -574,13 +577,32 @@ async def _workflow_awaiting_persona_natural_freight_info(
         history_messages, client, tools, CLIENTE_POTENCIAL_SYSTEM_PROMPT
     )
 
+    if "obtener_ayuda_humana" in tool_results:
+        await _write_cliente_potencial_to_sheet(interaction_data, sheets_service)
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL,
+                    message=obtener_ayuda_humana(),
+                    tool_calls=["obtener_ayuda_humana"],
+                )
+            ],
+            ClientePotencialState.HUMAN_ESCALATION,
+            "obtener_ayuda_humana",
+            interaction_data,
+        )
+
     if "necesita_agente_de_carga" in tool_results:
+        interaction_data["discarded"] = "agenciamiento_de_carga"
+        await _write_cliente_potencial_to_sheet(interaction_data, sheets_service)
         assistant_message_text = PROMPT_AGENCIAMIENTO_DE_CARGA
         next_state = ClientePotencialState.CONVERSATION_FINISHED
         tool_call_name = "necesita_agente_de_carga"
         interaction_data["messages_after_finished_count"] = 0
     else:
         # If no tool call or a different one, we assume they don't need it.
+        interaction_data["discarded"] = "persona_natural_no_b2b"
+        await _write_cliente_potencial_to_sheet(interaction_data, sheets_service)
         assistant_message_text = PROMPT_DISCARD_PERSONA_NATURAL
         next_state = ClientePotencialState.CONVERSATION_FINISHED
         tool_call_name = None
@@ -632,6 +654,7 @@ async def _workflow_awaiting_remaining_information(
     logger.info(f"Workflow received from Gemini - Text: '{text_response}', Tools: {tool_call_names}")
 
     if "obtener_ayuda_humana" in tool_results:
+        await _write_cliente_potencial_to_sheet(interaction_data, sheets_service)
         return (
             [
                 InteractionMessage(
@@ -647,6 +670,7 @@ async def _workflow_awaiting_remaining_information(
 
     if tool_results.get("es_envio_internacional"):
         interaction_data["discarded"] = "es_envio_internacional"
+        await _write_cliente_potencial_to_sheet(interaction_data, sheets_service)
         return (
             [
                 InteractionMessage(
@@ -662,6 +686,7 @@ async def _workflow_awaiting_remaining_information(
 
     if tool_results.get("es_solicitud_de_mudanza"):
         interaction_data["discarded"] = "es_solicitud_de_mudanza"
+        await _write_cliente_potencial_to_sheet(interaction_data, sheets_service)
         return (
             [
                 InteractionMessage(
@@ -677,6 +702,7 @@ async def _workflow_awaiting_remaining_information(
 
     if tool_results.get("es_solicitud_de_paqueteo"):
         interaction_data["discarded"] = "es_solicitud_de_paqueteo"
+        await _write_cliente_potencial_to_sheet(interaction_data, sheets_service)
         return (
             [
                 InteractionMessage(
@@ -708,6 +734,7 @@ async def _workflow_awaiting_remaining_information(
     if terminating_tool_name:
         interaction_data["messages_after_finished_count"] = 0
         final_message = text_response or tool_results[terminating_tool_name]
+        await _write_cliente_potencial_to_sheet(interaction_data, sheets_service)
         return (
             [
                 InteractionMessage(
@@ -775,6 +802,7 @@ async def _workflow_awaiting_remaining_information(
         logger.warning(
             "Model did not return text and no terminal tool was called. Escalating to human."
         )
+        await _write_cliente_potencial_to_sheet(interaction_data, sheets_service)
         return (
             [
                 InteractionMessage(

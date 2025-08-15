@@ -232,6 +232,8 @@ async def _workflow_awaiting_nit_cliente_activo(
         )
     except errors.ServerError as e:
         logger.error(f"Gemini API Server Error after retries: {e}", exc_info=True)
+        interaction_data["categoria"] = CategoriaClienteActivo.OTRO.value
+        await _write_cliente_activo_to_sheet(interaction_data, sheets_service)
         assistant_message_text = obtener_ayuda_humana()
         tool_call_name = "obtener_ayuda_humana"
         next_state = ClienteActivoState.HUMAN_ESCALATION
@@ -264,6 +266,8 @@ async def _workflow_awaiting_nit_cliente_activo(
                     tool_call_name = "obtener_informacion_cliente_activo"
 
             elif function_call.name == "obtener_ayuda_humana":
+                interaction_data["categoria"] = CategoriaClienteActivo.OTRO.value
+                await _write_cliente_activo_to_sheet(interaction_data, sheets_service)
                 assistant_message = InteractionMessage(
                     role=InteractionType.MODEL, message=obtener_ayuda_humana()
                 )
@@ -314,6 +318,8 @@ async def handle_in_progress_cliente_activo(
     )
 
     if "obtener_ayuda_humana" in tool_results:
+        interaction_data["categoria"] = CategoriaClienteActivo.OTRO.value
+        await _write_cliente_activo_to_sheet(interaction_data, sheets_service)
         return (
             [
                 InteractionMessage(
@@ -394,6 +400,8 @@ async def handle_in_progress_cliente_activo(
     logger.warning(
         "Cliente activo workflow did not result in a clear action. Escalating."
     )
+    interaction_data["categoria"] = CategoriaClienteActivo.OTRO.value
+    await _write_cliente_activo_to_sheet(interaction_data, sheets_service)
     return (
         [
             InteractionMessage(
