@@ -6,14 +6,14 @@ def buscar_nit(nit: str):
     return nit
 
 
-def es_persona_natural():
-    """Se debe llamar cuando el usuario indica que no es una empresa, por ejemplo si dice 'soy persona natural' o 'no tengo NIT'."""
-    return True
+def es_persona_natural(es_natural: bool) -> bool:
+    """Llama a esta función con `es_natural=True` cuando el usuario indica que no es una empresa, por ejemplo si dice 'soy persona natural' o 'no tengo NIT'."""
+    return es_natural
 
 
-def necesita_agente_de_carga():
-    """Se debe llamar si la persona natural indica que SÍ está interesada en agenciamiento de carga. Usar solo cuando la persona confirme que necesita un 'agente de carga' o que necesita 'agenciamiento de carga' o un 'freight forwarder'."""
-    return True
+def necesita_agente_de_carga(necesita: bool) -> bool:
+    """Llama a esta función con `necesita=True` si la persona natural indica que SÍ está interesada en agenciamiento de carga, y con `necesita=False` si no lo está."""
+    return necesita
 
 
 def obtener_informacion_empresa_contacto(
@@ -80,9 +80,9 @@ def obtener_tipo_de_servicio(tipo_de_servicio: str):
     return tipo_de_servicio
 
 
-def cliente_solicito_correo():
-    """Se debe llamar a esta función cuando el usuario indica que prefiere enviar la información por correo electrónico en lugar de proporcionarla en el chat."""
-    return True
+def cliente_solicito_correo(solicito: bool) -> bool:
+    """Llama a esta función con `solicito=True` cuando el usuario indica que prefiere enviar la información por correo electrónico en lugar de proporcionarla en el chat."""
+    return solicito
 
 
 def guardar_correo_cliente(email: str):

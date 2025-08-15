@@ -7,6 +7,7 @@ from google.genai import types, errors
 
 from .prompts import (
     CLIENTE_POTENCIAL_GATHER_INFO_SYSTEM_PROMPT,
+    CLIENTE_POTENCIAL_PERSONA_NATURAL_PROMPT,
     CLIENTE_POTENCIAL_SYSTEM_PROMPT,
     PROMPT_AGENCIAMIENTO_DE_CARGA,
     PROMPT_ASIGNAR_AGENTE_COMERCIAL,
@@ -523,7 +524,7 @@ async def _workflow_awaiting_nit(
             interaction_data,
         )
 
-    if "es_persona_natural" in tool_results:
+    if tool_results.get("es_persona_natural"):
         assistant_message_text = await get_final_text_response(
             history_messages, client, CLIENTE_POTENCIAL_SYSTEM_PROMPT
         )
@@ -572,7 +573,7 @@ async def _workflow_awaiting_persona_natural_freight_info(
         tool_call_names,
         _,
     ) = await execute_tool_calls_and_get_response(
-        history_messages, client, tools, CLIENTE_POTENCIAL_SYSTEM_PROMPT
+        history_messages, client, tools, CLIENTE_POTENCIAL_PERSONA_NATURAL_PROMPT
     )
 
     if "obtener_ayuda_humana" in tool_results:
@@ -590,7 +591,20 @@ async def _workflow_awaiting_persona_natural_freight_info(
             interaction_data,
         )
 
-    if "necesita_agente_de_carga" in tool_results:
+    if text_response:
+        return (
+            [
+                InteractionMessage(
+                    role=InteractionType.MODEL,
+                    message=text_response,
+                )
+            ],
+            ClientePotencialState.AWAITING_PERSONA_NATURAL_FREIGHT_INFO,
+            None,
+            interaction_data,
+        )
+
+    if tool_results.get("necesita_agente_de_carga"):
         interaction_data["discarded"] = MotivoDeDescarte.SERVICIO_NO_PRESTADO.value
         await _write_cliente_potencial_to_sheet(interaction_data, sheets_service)
         assistant_message_text = PROMPT_AGENCIAMIENTO_DE_CARGA
@@ -744,7 +758,7 @@ async def _workflow_awaiting_remaining_information(
             interaction_data,
         )
 
-    if "cliente_solicito_correo" in tool_results:
+    if tool_results.get("cliente_solicito_correo"):
         interaction_data["customer_requested_email_sent"] = True
         return (
             [
