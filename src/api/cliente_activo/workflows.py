@@ -33,6 +33,7 @@ from src.shared.utils.functions import (
     get_response_text,
     invoke_model_with_retries,
     execute_tool_calls_and_get_response,
+    get_final_text_response,
 )
 
 logger = logging.getLogger(__name__)
@@ -273,9 +274,13 @@ async def _workflow_awaiting_nit_cliente_activo(
     if not assistant_message:
         assistant_message_text = get_response_text(response)
         if not assistant_message_text:
-            assistant_message_text = (
-                "Para continuar, por favor, indícame el NIT de tu empresa y, si lo deseas, el nombre de la misma."
+            assistant_message_text = await get_final_text_response(
+                history_messages, client, CLIENTE_ACTIVO_AWAITING_NIT_SYSTEM_PROMPT
             )
+            if not assistant_message_text:
+                assistant_message_text = (
+                    "Para continuar, por favor, indícame el NIT de tu empresa y, si lo deseas, el nombre de la misma."
+                )
         assistant_message = InteractionMessage(
             role=InteractionType.MODEL, message=assistant_message_text
         )
