@@ -490,9 +490,16 @@ async def _workflow_awaiting_nit(
             interaction_data["remaining_information"]["nit"] = nit
 
         estado_cliente = search_result.get("estado")
-        if estado_cliente and estado_cliente not in ["PERDIDO", "PERDIDO MÁS DE 2 AÑOS"]:
+        nit_was_found = estado_cliente not in [
+            "No encontrado",
+            "Error de sistema",
+            "No verificado",
+        ]
+
+        if nit_was_found and estado_cliente not in ["PERDIDO", "PERDIDO MÁS DE 2 AÑOS"]:
             logger.info(
-                f"Client with NIT {nit} is an active client (estado={estado_cliente}). Re-routing to cliente_activo flow.")
+                f"Client with NIT {nit} is an active client (estado={estado_cliente}). Re-routing to cliente_activo flow."
+            )
             interaction_data["classifiedAs"] = CategoriaClasificacion.CLIENTE_ACTIVO.value
 
             return await handle_cliente_activo(
