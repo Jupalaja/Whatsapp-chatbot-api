@@ -27,6 +27,7 @@ async def handle_cliente_potencial(
     history_messages: list[InteractionMessage],
     current_state: ClientePotencialState,
     interaction_data: Optional[dict],
+    user_data: Optional[dict],
     client: genai.Client,
     sheets_service: Optional[GoogleSheetsService],
 ) -> tuple[list[InteractionMessage], GlobalState, str | None, dict] | tuple[
@@ -47,19 +48,19 @@ async def handle_cliente_potencial(
 
     if current_state == ClientePotencialState.AWAITING_NIT:
         return await _workflow_awaiting_nit(
-            history_messages, interaction_data, client, sheets_service
+            history_messages, interaction_data, user_data, client, sheets_service
         )
     if current_state == ClientePotencialState.AWAITING_PERSONA_NATURAL_FREIGHT_INFO:
         return await _workflow_awaiting_persona_natural_freight_info(
-            history_messages, interaction_data, client, sheets_service
+            history_messages, interaction_data, user_data, client, sheets_service
         )
     if current_state == ClientePotencialState.CUSTOMER_ASKED_FOR_EMAIL_DATA_SENT:
         return await _workflow_customer_asked_for_email_data_sent(
-            history_messages, interaction_data, client, sheets_service
+            history_messages, interaction_data, user_data, client, sheets_service
         )
     if current_state == ClientePotencialState.AWAITING_REMAINING_INFORMATION:
         return await _workflow_awaiting_remaining_information(
-            history_messages, interaction_data, client, sheets_service
+            history_messages, interaction_data, user_data, client, sheets_service
         )
 
     logger.warning(

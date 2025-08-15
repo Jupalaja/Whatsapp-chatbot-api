@@ -379,6 +379,10 @@ async def _route_to_specific_handler(
     if interaction and interaction.interaction_data:
         interaction_data = interaction.interaction_data
 
+    user_data = None
+    if interaction and interaction.user_data:
+        user_data = interaction.user_data
+
     try:
         if classified_as == CategoriaClasificacion.CLIENTE_POTENCIAL:
             logger.debug(f"Routing to 'cliente_potencial' handler for session_id: {interaction_request.sessionId}")
@@ -396,6 +400,7 @@ async def _route_to_specific_handler(
                 history_messages=history_messages,
                 current_state=current_state,
                 interaction_data=interaction_data,
+                user_data=user_data,
                 client=client,
                 sheets_service=sheets_service,
             )

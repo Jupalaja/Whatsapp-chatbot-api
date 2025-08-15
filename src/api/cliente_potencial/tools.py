@@ -21,19 +21,18 @@ def obtener_informacion_empresa_contacto(
     nombre_persona_contacto: Optional[str] = None,
     cargo: Optional[str] = None,
     correo: Optional[str] = None,
-    telefono: Optional[str] = None,
 ):
     """
     Se debe llamar a esta función para guardar cualquier pieza de información sobre la empresa o el contacto del cliente que se haya recopilado.
     El parámetro `nombre_legal` corresponde a la razón social o nombre de la empresa.
-    El modelo debe preguntar primero por la información de este grupo (razón social, nombre de contacto, cargo, correo y teléfono).
+    El modelo debe preguntar primero por la información de este grupo (razón social, nombre de contacto, cargo y correo).
     """
     return {k: v for k, v in locals().items() if v is not None}
 
 
 def informacion_de_contacto_esencial_obtenida(obtenida: bool):
     """
-    Llama a esta función con `obtenida=True` una vez que se haya recopilado TODA la información esencial de contacto del cliente potencial (nombre de contacto y teléfono).
+    Llama a esta función con `obtenida=True` una vez que se haya recopilado TODA la información esencial de contacto del cliente potencial (nombre de contacto).
     Esto indica que se puede proceder al siguiente paso de recopilar información del servicio.
     """
     return obtenida

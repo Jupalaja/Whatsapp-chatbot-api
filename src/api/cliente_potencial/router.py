@@ -38,6 +38,7 @@ async def handle(
     history_messages: list[InteractionMessage] = []
     current_state = ClientePotencialState.AWAITING_NIT
     interaction_data: Optional[dict] = None
+    user_data: Optional[dict] = None
     if interaction:
         history_messages = [
             InteractionMessage.model_validate(msg) for msg in interaction.messages
@@ -46,6 +47,8 @@ async def handle(
             current_state = ClientePotencialState(interaction.state)
         if interaction.interaction_data:
             interaction_data = interaction.interaction_data
+        if interaction.user_data:
+            user_data = interaction.user_data
 
     if not history_messages:
         assistant_message = InteractionMessage(
@@ -79,6 +82,7 @@ async def handle(
             history_messages=history_messages,
             current_state=current_state,
             interaction_data=interaction_data,
+            user_data=user_data,
             client=client,
             sheets_service=sheets_service,
         )
