@@ -33,7 +33,7 @@ from .tools import (
 )
 from src.config import settings
 from src.shared.constants import GEMINI_MODEL
-from src.shared.enums import InteractionType
+from src.shared.enums import InteractionType, MotivoDeDescarte
 from src.shared.schemas import InteractionMessage
 from src.shared.tools import obtener_ayuda_humana
 from src.services.google_sheets import GoogleSheetsService
@@ -97,7 +97,6 @@ async def _write_cliente_potencial_to_sheet(
         ) or interaction_data.get("remaining_information", {}).get("nit", "")
         estado_cliente = search_result.get("estado", "")
         razon_social = remaining_info.get("nombre_legal", "")
-        ciudad = ""  # Not specified in requirements
         nombre_decisor = remaining_info.get("nombre_persona_contacto", "")
         cargo = remaining_info.get("cargo", "")
         celular = remaining_info.get("telefono", "")
@@ -109,7 +108,7 @@ async def _write_cliente_potencial_to_sheet(
         destino = remaining_info.get("ciudad_destino", "")
         potencial_viajes = remaining_info.get("promedio_viajes_mensuales", "")
         descripcion_necesidad = remaining_info.get("detalles_mercancia", "")
-        perfilado = "SI" if razon_social else "NO"
+        perfilado = "NO" if "discarded" in interaction_data else "YES"
         motivo_descarte = interaction_data.get("discarded", "")
         if not motivo_descarte and customer_email:
             motivo_descarte = "Prefirió correo"
@@ -127,7 +126,6 @@ async def _write_cliente_potencial_to_sheet(
             nit,
             estado_cliente,
             razon_social,
-            ciudad,
             nombre_decisor,
             cargo,
             celular,
@@ -375,7 +373,7 @@ async def _workflow_awaiting_nit(
     )
 
     if tool_results.get("es_solicitud_de_mudanza"):
-        interaction_data["discarded"] = "es_solicitud_de_mudanza"
+        interaction_data["discarded"] = MotivoDeDescarte.SERVICIO_NO_PRESTADO.value
         return (
             [
                 InteractionMessage(
@@ -390,7 +388,7 @@ async def _workflow_awaiting_nit(
         )
 
     if tool_results.get("es_solicitud_de_paqueteo"):
-        interaction_data["discarded"] = "es_solicitud_de_paqueteo"
+        interaction_data["discarded"] = MotivoDeDescarte.SERVICIO_NO_PRESTADO.value
         return (
             [
                 InteractionMessage(
@@ -405,7 +403,7 @@ async def _workflow_awaiting_nit(
         )
 
     if tool_results.get("es_envio_internacional"):
-        interaction_data["discarded"] = "es_envio_internacional"
+        interaction_data["discarded"] = MotivoDeDescarte.SERVICIO_NO_PRESTADO.value
         return (
             [
                 InteractionMessage(
@@ -428,9 +426,9 @@ async def _workflow_awaiting_nit(
         if result and isinstance(result, str):
             terminating_tool_name = check
             if check == "es_mercancia_valida":
-                interaction_data["discarded"] = "no_es_mercancia_valida"
+                interaction_data["discarded"] = MotivoDeDescarte.PRODUCTO_NO_VALIDO.value
             elif check == "es_ciudad_valida":
-                interaction_data["discarded"] = "no_es_ciudad_valida"
+                interaction_data["discarded"] = MotivoDeDescarte.RUTA_FUERA_DE_COBERTURA.value
             break
 
     if terminating_tool_name:
@@ -593,7 +591,7 @@ async def _workflow_awaiting_persona_natural_freight_info(
         )
 
     if "necesita_agente_de_carga" in tool_results:
-        interaction_data["discarded"] = "agenciamiento_de_carga"
+        interaction_data["discarded"] = MotivoDeDescarte.SERVICIO_NO_PRESTADO.value
         await _write_cliente_potencial_to_sheet(interaction_data, sheets_service)
         assistant_message_text = PROMPT_AGENCIAMIENTO_DE_CARGA
         next_state = ClientePotencialState.CONVERSATION_FINISHED
@@ -601,7 +599,7 @@ async def _workflow_awaiting_persona_natural_freight_info(
         interaction_data["messages_after_finished_count"] = 0
     else:
         # If no tool call or a different one, we assume they don't need it.
-        interaction_data["discarded"] = "persona_natural_no_b2b"
+        interaction_data["discarded"] = MotivoDeDescarte.SERVICIO_NO_PRESTADO.value
         await _write_cliente_potencial_to_sheet(interaction_data, sheets_service)
         assistant_message_text = PROMPT_DISCARD_PERSONA_NATURAL
         next_state = ClientePotencialState.CONVERSATION_FINISHED
@@ -669,7 +667,7 @@ async def _workflow_awaiting_remaining_information(
         )
 
     if tool_results.get("es_envio_internacional"):
-        interaction_data["discarded"] = "es_envio_internacional"
+        interaction_data["discarded"] = MotivoDeDescarte.SERVICIO_NO_PRESTADO.value
         await _write_cliente_potencial_to_sheet(interaction_data, sheets_service)
         return (
             [
@@ -685,7 +683,7 @@ async def _workflow_awaiting_remaining_information(
         )
 
     if tool_results.get("es_solicitud_de_mudanza"):
-        interaction_data["discarded"] = "es_solicitud_de_mudanza"
+        interaction_data["discarded"] = MotivoDeDescarte.SERVICIO_NO_PRESTADO.value
         await _write_cliente_potencial_to_sheet(interaction_data, sheets_service)
         return (
             [
@@ -701,7 +699,7 @@ async def _workflow_awaiting_remaining_information(
         )
 
     if tool_results.get("es_solicitud_de_paqueteo"):
-        interaction_data["discarded"] = "es_solicitud_de_paqueteo"
+        interaction_data["discarded"] = MotivoDeDescarte.SERVICIO_NO_PRESTADO.value
         await _write_cliente_potencial_to_sheet(interaction_data, sheets_service)
         return (
             [
@@ -726,9 +724,9 @@ async def _workflow_awaiting_remaining_information(
         if result and (isinstance(result, str)):
             terminating_tool_name = check
             if check == "es_mercancia_valida":
-                interaction_data["discarded"] = "no_es_mercancia_valida"
+                interaction_data["discarded"] = MotivoDeDescarte.PRODUCTO_NO_VALIDO.value
             elif check == "es_ciudad_valida":
-                interaction_data["discarded"] = "no_es_ciudad_valida"
+                interaction_data["discarded"] = MotivoDeDescarte.RUTA_FUERA_DE_COBERTURA.value
             break
 
     if terminating_tool_name:

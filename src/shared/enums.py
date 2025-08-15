@@ -27,6 +27,12 @@ class TipoDeServicio(str, Enum):
     ITR = "ITR"  # Recibo de Traslado de Intercambio
 
 
+class MotivoDeDescarte(str, Enum):
+    RUTA_FUERA_DE_COBERTURA = "RUTA FUERA DE COBERTURA"
+    PRODUCTO_NO_VALIDO = "PRODUCTO/MERCANCIA  NO TRANSPORTADA POR BSSL"
+    SERVICIO_NO_PRESTADO = "SERVICIO NO PRESTADO POR BSSL"
+
+
 class CategoriaClienteActivo(str, Enum):
     TRAZABILIDAD = "TRAZABILIDAD"
     BLOQUEOS_CARTERA = "BLOQUEOS_CARTERA"
