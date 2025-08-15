@@ -12,6 +12,7 @@ from .prompts import (
     PROMPT_BLOQUEOS_CARTERA,
     PROMPT_FACTURACION,
     PROMPT_CLIENTE_ACTIVO_AGENTE_COMERCIAL,
+    PROMPT_CLIENTE_ACTIVO_SIN_AGENTE_COMERCIAL,
 )
 from .state import ClienteActivoState
 from .tools import (
@@ -19,6 +20,7 @@ from .tools import (
     es_consulta_trazabilidad,
     es_consulta_bloqueos_cartera,
     es_consulta_facturacion,
+    es_consulta_cotizacion,
     limpiar_datos_agente_comercial,
     obtener_informacion_cliente_activo,
 )
@@ -305,6 +307,7 @@ async def handle_in_progress_cliente_activo(
         es_consulta_trazabilidad,
         es_consulta_bloqueos_cartera,
         es_consulta_facturacion,
+        es_consulta_cotizacion,
         obtener_ayuda_humana,
     ]
 
@@ -345,6 +348,47 @@ async def handle_in_progress_cliente_activo(
         interaction_data["categoria"] = CategoriaClienteActivo.FACTURACION.value
         base_message_text = PROMPT_FACTURACION
         tool_call_name = "es_consulta_facturacion"
+    elif tool_results.get("es_consulta_cotizacion"):
+        interaction_data["categoria"] = CategoriaClienteActivo.COTIZACION.value
+        tool_call_name = "es_consulta_cotizacion"
+        next_state = ClienteActivoState.CONVERSATION_FINISHED
+        search_result = interaction_data.get("resultado_buscar_nit", {})
+        final_message_text = PROMPT_CLIENTE_ACTIVO_SIN_AGENTE_COMERCIAL
+
+        if search_result.get("responsable_comercial") and search_result.get(
+            "responsable_comercial"
+        ) not in ["No encontrado", "Error de sistema", "SIN RESPONSABLE"]:
+            cleaned_data = await _clean_commercial_agent_data(search_result, client)
+
+            if cleaned_data.get("agente_valido"):
+                nombre_formateado = cleaned_data.get("nombre_formateado", "")
+                email_valido = cleaned_data.get("email_valido", "")
+                telefono_valido = cleaned_data.get("telefono_valido", "")
+
+                contact_details = ""
+                if email_valido and telefono_valido:
+                    contact_details = f" Lo puedes contactar al correo *{email_valido}* o al teléfono *{telefono_valido}*."
+                elif email_valido:
+                    contact_details = (
+                        f" Lo puedes contactar al correo *{email_valido}*."
+                    )
+                elif telefono_valido:
+                    contact_details = (
+                        f" Lo puedes contactar al teléfono *{telefono_valido}*."
+                    )
+
+                final_message_text = PROMPT_CLIENTE_ACTIVO_AGENTE_COMERCIAL.format(
+                    responsable_comercial=nombre_formateado,
+                    contact_details=contact_details,
+                )
+
+        assistant_message = InteractionMessage(
+            role=InteractionType.MODEL, message=final_message_text
+        )
+        interaction_data["descripcion_de_necesidad"] = ""
+        await _write_cliente_activo_to_sheet(interaction_data, sheets_service)
+
+        return [assistant_message], next_state, tool_call_name, interaction_data
 
     if base_message_text:
         next_state = ClienteActivoState.CONVERSATION_FINISHED

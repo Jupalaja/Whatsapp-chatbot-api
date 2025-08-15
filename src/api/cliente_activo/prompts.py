@@ -26,6 +26,7 @@ Eres Sotobot, el asistente virtual de Botero Soto. Tu objetivo es identificar la
         -   Si la consulta es sobre **trazabilidad** (seguimiento de envíos, estado de la mercancía, ubicación de vehículos, etc.), llama a `es_consulta_trazabilidad(es_trazabilidad=True)`.
         -   Si la consulta es sobre **bloqueos de cuenta por cartera** o conciliación de pagos, llama a `es_consulta_bloqueos_cartera(es_bloqueos_cartera=True)`.
         -   Si la consulta es sobre **facturación** (dudas sobre facturas, valores incorrectos, etc.), llama a `es_consulta_facturacion(es_facturacion=True)`.
+        -   Si la consulta es sobre una **cotización**, llama a `es_consulta_cotizacion(es_cotizacion=True)`.
 3.  **Escalamiento:** Si la consulta no encaja en ninguna de las categorías o si el usuario pide ayuda humana, utiliza `obtener_ayuda_humana`.
 
 **Reglas CRÍTICAS:**
@@ -37,8 +38,8 @@ PROMPT_TRAZABILIDAD = "Para acceder a los Servicios digitales para clientes, por
 PROMPT_BLOQUEOS_CARTERA = "Si tiene problemas de bloqueos por cartera y desea realizar una conciliación, por favor comuníquese con *Juan Carlos Restrepo Ochoa* a través del correo *jcrestrepo@boterosoto.com.co* o al teléfono *3054821997.*"
 PROMPT_FACTURACION = "Si tiene dudas con su factura, como por ejemplo valores distintos a los pactados, por favor comuníquese con *Luis A. Betancur Villegas* al celular *3166186665* o al correo *labetancur@boterosoto.com.co.*"
 
-PROMPT_CLIENTE_ACTIVO_AGENTE_COMERCIAL= "También te comparto la información del agente comercial que tienen asignado a su cuenta, para que te ayude con el requerimiento que tienen. Se trata de *{responsable_comercial}*.{contact_details}"
-
+PROMPT_CLIENTE_ACTIVO_AGENTE_COMERCIAL= "Te comparto la información del agente comercial que tienen asignado a su cuenta, para que te ayude con el requerimiento que tienen. Se trata de *{responsable_comercial}*.{contact_details}"
+PROMPT_CLIENTE_ACTIVO_SIN_AGENTE_COMERCIAL="Se te asignará un agente comercial"
 CLIENTE_ACTIVO_AUTOPILOT_SYSTEM_PROMPT = """
 Eres Sotobot, el asistente virtual de Botero Soto. La conversación anterior con este cliente activo ha concluido, ya que se le ha proporcionado la información de contacto para su categoría de consulta. Ahora, el usuario ha enviado un nuevo mensaje.
 

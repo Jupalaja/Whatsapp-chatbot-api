@@ -28,6 +28,11 @@ def es_consulta_facturacion(es_facturacion: bool) -> bool:
     return es_facturacion
 
 
+def es_consulta_cotizacion(es_cotizacion: bool) -> bool:
+    """Retorna True si la consulta es para realizar una cotización."""
+    return es_cotizacion
+
+
 def limpiar_datos_agente_comercial(
     agente_valido: bool,
     nombre_formateado: Optional[str] = None,
