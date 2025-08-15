@@ -48,7 +48,7 @@ async def handle_cliente_potencial(
 
     if current_state == ClientePotencialState.AWAITING_NIT:
         return await _workflow_awaiting_nit(
-            history_messages, interaction_data, user_data, client, sheets_service
+            session_id, history_messages, interaction_data, user_data, client, sheets_service
         )
     if current_state == ClientePotencialState.AWAITING_PERSONA_NATURAL_FREIGHT_INFO:
         return await _workflow_awaiting_persona_natural_freight_info(

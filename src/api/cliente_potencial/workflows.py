@@ -34,7 +34,7 @@ from .tools import (
 )
 from src.config import settings
 from src.shared.constants import GEMINI_MODEL
-from src.shared.enums import InteractionType, MotivoDeDescarte
+from src.shared.enums import CategoriaClasificacion, InteractionType, MotivoDeDescarte
 from src.shared.schemas import InteractionMessage
 from src.shared.tools import obtener_ayuda_humana
 from src.services.google_sheets import GoogleSheetsService
@@ -54,6 +54,8 @@ from src.shared.utils.functions import (
     execute_tool_calls_and_get_response,
     get_final_text_response,
 )
+from ..cliente_activo.handler import handle_cliente_activo
+from ..cliente_activo.state import ClienteActivoState
 
 logger = logging.getLogger(__name__)
 
@@ -286,6 +288,7 @@ async def _workflow_remaining_information_provided(
 
 
 async def _workflow_awaiting_nit(
+        session_id: str,
         history_messages: list[InteractionMessage],
         interaction_data: dict,
         user_data: Optional[dict],
@@ -485,6 +488,21 @@ async def _workflow_awaiting_nit(
         nit = tool_args_map.get("buscar_nit", {}).get("nit")
         if nit:
             interaction_data["remaining_information"]["nit"] = nit
+
+        estado_cliente = search_result.get("estado")
+        if estado_cliente and estado_cliente not in ["PERDIDO", "PERDIDO MÁS DE 2 AÑOS"]:
+            logger.info(
+                f"Client with NIT {nit} is an active client (estado={estado_cliente}). Re-routing to cliente_activo flow.")
+            interaction_data["classifiedAs"] = CategoriaClasificacion.CLIENTE_ACTIVO.value
+
+            return await handle_cliente_activo(
+                session_id=session_id,
+                history_messages=history_messages,
+                current_state=ClienteActivoState.AWAITING_RESOLUTION,
+                interaction_data=interaction_data,
+                client=client,
+                sheets_service=sheets_service,
+            )
 
     # Check if we have all info and can finish
     essential_keys = [
