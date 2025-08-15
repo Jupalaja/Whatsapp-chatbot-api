@@ -60,6 +60,10 @@ logger = logging.getLogger(__name__)
 async def _write_cliente_potencial_to_sheet(
         interaction_data: dict, sheets_service: Optional[GoogleSheetsService]
 ):
+    if interaction_data.get("sheet_row_added"):
+        logger.info("Data for potential client has already been written to Google Sheet. Skipping.")
+        return
+
     if (
             not settings.GOOGLE_SHEET_ID_EXPORT
             or not sheets_service
@@ -141,7 +145,8 @@ async def _write_cliente_potencial_to_sheet(
         ]
 
         sheets_service.append_row(worksheet, row_to_append)
-        logger.info(f"Successfully wrote data for NIT {nit} to Google Sheet.")
+        interaction_data["sheet_row_added"] = True
+        logger.info(f"Successfully wrote data for NIT {nit} to Google Sheet and marked as added.")
 
     except Exception as e:
         logger.error(f"Failed to write to Google Sheet: {e}", exc_info=True)
