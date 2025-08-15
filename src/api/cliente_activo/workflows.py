@@ -20,6 +20,7 @@ from .tools import (
     es_consulta_bloqueos_cartera,
     es_consulta_facturacion,
     limpiar_datos_agente_comercial,
+    obtener_informacion_cliente_activo,
 )
 from src.config import settings
 from src.shared.constants import GEMINI_MODEL
@@ -57,13 +58,14 @@ async def _write_cliente_activo_to_sheet(
 
         fecha_perfilacion = datetime.now().strftime("%d/%m/%Y")
         nit = interaction_data.get("nit", "")
+        nombre_empresa = interaction_data.get("nombre_empresa", "")
         tipo_de_solicitud = interaction_data.get("categoria", "")
         descripcion_de_necesidad = interaction_data.get("descripcion_de_necesidad", "")
 
         row_to_append = [
             fecha_perfilacion,
             nit,
-            "",
+            nombre_empresa,
             tipo_de_solicitud,
             descripcion_de_necesidad,
         ]
@@ -201,7 +203,11 @@ async def _workflow_awaiting_nit_cliente_activo(
             }
         return search_result
 
-    tools = [buscar_nit_tool, obtener_ayuda_humana]
+    tools = [
+        buscar_nit_tool,
+        obtener_informacion_cliente_activo,
+        obtener_ayuda_humana
+    ]
 
     genai_history = await get_genai_history(history_messages)
     config = types.GenerateContentConfig(
@@ -231,32 +237,44 @@ async def _workflow_awaiting_nit_cliente_activo(
     assistant_message = None
     tool_call_name = None
     next_state = ClienteActivoState.AWAITING_NIT
+    nit_provided = False
 
     if response.function_calls:
-        function_call = response.function_calls[0]
-        tool_call_name = function_call.name
+        for function_call in response.function_calls:
+            if function_call.name == "buscar_nit":
+                nit = function_call.args.get("nit")
+                if nit:
+                    interaction_data["nit"] = nit
+                    search_result = buscar_nit(nit)
+                    interaction_data["resultado_buscar_nit"] = search_result
+                    nit_provided = True
+                    tool_call_name = "buscar_nit"
 
-        if function_call.name == "buscar_nit":
-            nit = function_call.args.get("nit")
-            if nit:
-                interaction_data["nit"] = nit
-                search_result = buscar_nit(nit)
-                interaction_data["resultado_buscar_nit"] = search_result
+            elif function_call.name == "obtener_informacion_cliente_activo":
+                nombre_empresa = function_call.args.get("nombre_empresa")
+                if nombre_empresa:
+                    interaction_data["nombre_empresa"] = nombre_empresa
+                if not tool_call_name:
+                    tool_call_name = "obtener_informacion_cliente_activo"
 
+            elif function_call.name == "obtener_ayuda_humana":
+                assistant_message = InteractionMessage(
+                    role=InteractionType.MODEL, message=obtener_ayuda_humana()
+                )
+                next_state = ClienteActivoState.HUMAN_ESCALATION
+                tool_call_name = "obtener_ayuda_humana"
+                break
+
+        if nit_provided:
             return await handle_in_progress_cliente_activo(
                 history_messages, client, sheets_service, interaction_data
             )
-        elif function_call.name == "obtener_ayuda_humana":
-            assistant_message = InteractionMessage(
-                role=InteractionType.MODEL, message=obtener_ayuda_humana()
-            )
-            next_state = ClienteActivoState.HUMAN_ESCALATION
 
     if not assistant_message:
         assistant_message_text = get_response_text(response)
         if not assistant_message_text:
             assistant_message_text = (
-                "Para continuar, por favor, indícame el NIT de tu empresa."
+                "Para continuar, por favor, indícame el NIT de tu empresa y, si lo deseas, el nombre de la misma."
             )
         assistant_message = InteractionMessage(
             role=InteractionType.MODEL, message=assistant_message_text

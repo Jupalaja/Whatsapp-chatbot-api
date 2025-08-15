@@ -6,6 +6,13 @@ def buscar_nit(nit: str):
     return nit
 
 
+def obtener_informacion_cliente_activo(nombre_empresa: Optional[str] = None):
+    """
+    Captura el Nombre de la empresa proporcionado por usuario, este valor es opcional.
+    """
+    return nombre_empresa
+
+
 def es_consulta_trazabilidad(es_trazabilidad: bool) -> bool:
     """Retorna True si la consulta tiene que ver con trazabilidad (ubicar un vehículo)."""
     return es_trazabilidad
