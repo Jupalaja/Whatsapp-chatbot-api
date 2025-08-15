@@ -100,6 +100,10 @@ async def _workflow_awaiting_admin_info(
         )
     except errors.ServerError as e:
         logger.error(f"Gemini API Server Error after retries: {e}", exc_info=True)
+        interaction_data[
+            "tipo_de_necesidad"
+        ] = CategoriaUsuarioAdministrativo.OTRO.value
+        await _write_usuario_administrativo_to_sheet(interaction_data, sheets_service)
         return (
             [
                 InteractionMessage(
@@ -122,6 +126,12 @@ async def _workflow_awaiting_admin_info(
             interaction_data["nombre"] = info.get("nombre")
 
         elif function_call.name == "obtener_ayuda_humana":
+            interaction_data[
+                "tipo_de_necesidad"
+            ] = CategoriaUsuarioAdministrativo.OTRO.value
+            await _write_usuario_administrativo_to_sheet(
+                interaction_data, sheets_service
+            )
             return (
                 [
                     InteractionMessage(
@@ -151,6 +161,10 @@ async def _workflow_awaiting_admin_info(
             f"Could not determine final prompt for tipo_de_necesidad: {interaction_data.get('tipo_de_necesidad')}. Escalating."
         )
         final_prompt = obtener_ayuda_humana()
+        interaction_data[
+            "tipo_de_necesidad"
+        ] = CategoriaUsuarioAdministrativo.OTRO.value
+        await _write_usuario_administrativo_to_sheet(interaction_data, sheets_service)
         return (
             [InteractionMessage(role=InteractionType.MODEL, message=final_prompt)],
             UsuarioAdministrativoState.HUMAN_ESCALATION,
@@ -191,6 +205,10 @@ async def handle_in_progress_usuario_administrativo(
     )
 
     if "obtener_ayuda_humana" in tool_results:
+        interaction_data[
+            "tipo_de_necesidad"
+        ] = CategoriaUsuarioAdministrativo.OTRO.value
+        await _write_usuario_administrativo_to_sheet(interaction_data, sheets_service)
         return (
             [
                 InteractionMessage(
@@ -249,6 +267,8 @@ async def handle_in_progress_usuario_administrativo(
     logger.warning(
         "Usuario administrativo workflow did not result in a clear action. Escalating."
     )
+    interaction_data["tipo_de_necesidad"] = CategoriaUsuarioAdministrativo.OTRO.value
+    await _write_usuario_administrativo_to_sheet(interaction_data, sheets_service)
     return (
         [
             InteractionMessage(

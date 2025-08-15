@@ -119,6 +119,8 @@ async def _workflow_awaiting_transportista_info(
         )
     except errors.ServerError as e:
         logger.error(f"Gemini API Server Error after retries: {e}", exc_info=True)
+        interaction_data["tipo_de_solicitud"] = CategoriaTransportista.OTRO.value
+        await _write_transportista_to_sheet(interaction_data, sheets_service)
         return (
             [
                 InteractionMessage(
@@ -141,6 +143,8 @@ async def _workflow_awaiting_transportista_info(
             interaction_data["nombre"] = info.get("nombre")
 
         elif function_call.name == "obtener_ayuda_humana":
+            interaction_data["tipo_de_solicitud"] = CategoriaTransportista.OTRO.value
+            await _write_transportista_to_sheet(interaction_data, sheets_service)
             return (
                 [
                     InteractionMessage(
@@ -187,6 +191,7 @@ async def _workflow_video_sent(
     history_messages: list[InteractionMessage],
     client: genai.Client,
     interaction_data: dict,
+    sheets_service: Optional[GoogleSheetsService],
 ) -> Tuple[list[InteractionMessage], TransportistaState, Optional[str], dict]:
     """
     Handles the conversation flow after a video has been sent to the carrier.
@@ -196,6 +201,8 @@ async def _workflow_video_sent(
         logger.warning(
             f"No valid video file found in interaction_data for video_sent state. Escalating."
         )
+        interaction_data["tipo_de_solicitud"] = CategoriaTransportista.OTRO.value
+        await _write_transportista_to_sheet(interaction_data, sheets_service)
         return (
             [
                 InteractionMessage(
@@ -224,6 +231,8 @@ async def _workflow_video_sent(
     )
 
     if "obtener_ayuda_humana" in tool_results:
+        interaction_data["tipo_de_solicitud"] = CategoriaTransportista.OTRO.value
+        await _write_transportista_to_sheet(interaction_data, sheets_service)
         return (
             [
                 InteractionMessage(
@@ -262,6 +271,8 @@ async def _workflow_video_sent(
 
     # Fallback if no text response and no tool call
     logger.warning("VIDEO_SENT workflow did not result in a clear action. Escalating.")
+    interaction_data["tipo_de_solicitud"] = CategoriaTransportista.OTRO.value
+    await _write_transportista_to_sheet(interaction_data, sheets_service)
     return (
         [
             InteractionMessage(
@@ -314,6 +325,8 @@ async def handle_in_progress_transportista(
 
     # Prioritize terminal/special actions
     if "obtener_ayuda_humana" in tool_results:
+        interaction_data["tipo_de_solicitud"] = CategoriaTransportista.OTRO.value
+        await _write_transportista_to_sheet(interaction_data, sheets_service)
         return [
             InteractionMessage(
                 role=InteractionType.MODEL, message=obtener_ayuda_humana()
@@ -539,6 +552,8 @@ async def handle_in_progress_transportista(
     logger.warning(
         "Transportista workflow did not result in a clear action. Escalating."
     )
+    interaction_data["tipo_de_solicitud"] = CategoriaTransportista.OTRO.value
+    await _write_transportista_to_sheet(interaction_data, sheets_service)
     return (
         [
             InteractionMessage(

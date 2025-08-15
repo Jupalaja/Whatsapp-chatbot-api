@@ -37,10 +37,12 @@ class CategoriaClienteActivo(str, Enum):
 class CategoriaUsuarioAdministrativo(str, Enum):
     RETEFUENTE = "RETEFUENTE"
     CERTIFICADO_LABORAL = "CERTIFICADO_LABORAL"
+    OTRO = "OTRO"
 
 
 class CategoriaTransportista(str, Enum):
     MANIFIESTOS = "MANIFIESTOS"
     ENTURNAMIENTOS = "ENTURNAMIENTOS"
     APP_CONDUCTORES = "APP_CONDUCTORES"
+    OTRO = "OTRO"
 

@@ -50,6 +50,7 @@ async def handle_transportista(
             history_messages=history_messages,
             client=client,
             interaction_data=interaction_data,
+            sheets_service=sheets_service,
         )
 
     if current_state == TransportistaState.AWAITING_TRANSPORTISTA_INFO:

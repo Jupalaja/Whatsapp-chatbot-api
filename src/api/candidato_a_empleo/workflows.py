@@ -93,6 +93,7 @@ async def handle_in_progress_candidato_a_empleo(
         )
     except errors.ServerError as e:
         logger.error(f"Gemini API Server Error after retries: {e}", exc_info=True)
+        await _write_candidato_a_empleo_to_sheet(interaction_data, sheets_service)
         assistant_message_text = obtener_ayuda_humana()
         tool_call_name = "obtener_ayuda_humana"
         next_state = CandidatoAEmpleoState.HUMAN_ESCALATION
@@ -120,6 +121,7 @@ async def handle_in_progress_candidato_a_empleo(
             next_state = CandidatoAEmpleoState.CONVERSATION_FINISHED
 
         elif function_call.name == "obtener_ayuda_humana":
+            await _write_candidato_a_empleo_to_sheet(interaction_data, sheets_service)
             assistant_message = InteractionMessage(
                 role=InteractionType.MODEL, message=obtener_ayuda_humana()
             )
