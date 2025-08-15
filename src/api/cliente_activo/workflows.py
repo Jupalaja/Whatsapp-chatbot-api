@@ -274,13 +274,11 @@ async def _workflow_awaiting_nit_cliente_activo(
     if not assistant_message:
         assistant_message_text = get_response_text(response)
         if not assistant_message_text:
-            assistant_message_text = await get_final_text_response(
-                history_messages, client, CLIENTE_ACTIVO_AWAITING_NIT_SYSTEM_PROMPT
+            # If the model, following instructions, provides no text,
+            # it means we should proceed without the NIT.
+            return await handle_in_progress_cliente_activo(
+                history_messages, client, sheets_service, interaction_data
             )
-            if not assistant_message_text:
-                assistant_message_text = (
-                    "Para continuar, por favor, indícame el NIT de tu empresa y, si lo deseas, el nombre de la misma."
-                )
         assistant_message = InteractionMessage(
             role=InteractionType.MODEL, message=assistant_message_text
         )
