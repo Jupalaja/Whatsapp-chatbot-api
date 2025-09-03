@@ -43,6 +43,8 @@ async def handle_interaction(
     # Append new user message
     history_messages.append(interaction_request.message)
 
+    assistant_message = None
+    tool_call_name = None
     try:
         model = GEMINI_MODEL
 
@@ -61,9 +63,6 @@ async def handle_interaction(
             client.aio.models.generate_content,
             model=model, contents=genai_history, config=config
         )
-
-        assistant_message = None
-        tool_call_name = None
 
         if response.function_calls:
             function_call = response.function_calls[0]
@@ -84,37 +83,42 @@ async def handle_interaction(
                     role=InteractionType.MODEL,
                     message=assistant_text,
                 )
-
-        if assistant_message:
-            history_messages.append(assistant_message)
-
-        # Upsert interaction
-        if interaction:
-            interaction.messages = [msg.model_dump(mode="json") for msg in history_messages]
-        else:
-            interaction = models.Interaction(
-                session_id=interaction_request.sessionId,
-                messages=[msg.model_dump(mode="json") for msg in history_messages],
-            )
-            db.add(interaction)
-
-        await db.commit()
-
-        return InteractionResponse(
-            sessionId=interaction_request.sessionId,
-            messages=[assistant_message] if assistant_message else [],
-            toolCall=tool_call_name,
-            state=interaction.state,
+    except errors.ServerError as e:
+        logger.error(f"Gemini API Server Error: {e}", exc_info=True)
+        assistant_message = InteractionMessage(
+            role=InteractionType.MODEL, message=obtener_ayuda_humana()
         )
+        tool_call_name = "obtener_ayuda_humana"
     except errors.APIError as e:
         logger.error(f"Gemini API Error: {e}")
         raise HTTPException(status_code=500, detail=f"Gemini API Error: {e!s}")
-    except Exception as e:
-        logger.error(f"An unexpected error occurred: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail="An unexpected error occurred. Check server logs and environment variables.",
+
+    if not assistant_message:
+        assistant_message = InteractionMessage(
+            role=InteractionType.MODEL, message=obtener_ayuda_humana()
         )
+        tool_call_name = "obtener_ayuda_humana"
+        
+    history_messages.append(assistant_message)
+
+    # Upsert interaction
+    if interaction:
+        interaction.messages = [msg.model_dump(mode="json") for msg in history_messages]
+    else:
+        interaction = models.Interaction(
+            session_id=interaction_request.sessionId,
+            messages=[msg.model_dump(mode="json") for msg in history_messages],
+        )
+        db.add(interaction)
+
+    await db.commit()
+
+    return InteractionResponse(
+        sessionId=interaction_request.sessionId,
+        messages=[assistant_message],
+        toolCall=tool_call_name,
+        state=interaction.state,
+    )
 
 
 @router.get("/interaction", response_model=InteractionResponse)

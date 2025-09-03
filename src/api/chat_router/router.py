@@ -547,6 +547,37 @@ async def _route_to_specific_handler(
             classifiedAs=classified_as,
         )
 
+    except errors.ServerError as e:
+        logger.error(f"Gemini API Server Error in specific handler for {classified_as}: {e}", exc_info=True)
+        new_assistant_messages = [
+            InteractionMessage(
+                role=InteractionType.MODEL,
+                message=obtener_ayuda_humana()
+            )
+        ]
+        next_state = GlobalState.HUMAN_ESCALATION
+        tool_call_name = "obtener_ayuda_humana"
+        new_interaction_data = interaction_data or {}
+
+        # Update history with new messages
+        history_messages.extend(new_assistant_messages)
+
+        # Save to database
+        if interaction:
+            interaction.messages = [msg.model_dump(mode="json") for msg in history_messages]
+            interaction.state = next_state.value if hasattr(next_state, 'value') else next_state
+            interaction.interaction_data = new_interaction_data
+            flag_modified(interaction, "interaction_data")
+        
+        await db.commit()
+
+        return InteractionResponse(
+            sessionId=interaction_request.sessionId,
+            messages=new_assistant_messages,
+            toolCall=tool_call_name,
+            state=interaction.state,
+            classifiedAs=classified_as,
+        )
     except Exception as e:
         logger.error(f"Error in specific handler for {classified_as}: {e}", exc_info=True)
         raise HTTPException(
