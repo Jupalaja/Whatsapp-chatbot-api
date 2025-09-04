@@ -570,7 +570,7 @@ async def _workflow_awaiting_nit(
 
     # No tool call or unrecognized response
     assistant_message_text = (
-            text_response or "Could you please provide your NIT or indicate if you are an individual?"
+            text_response or ""
     )
     return (
         [
