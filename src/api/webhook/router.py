@@ -229,81 +229,6 @@ async def send_whatsapp_text_list_message(phone_number: str):
     logger.debug(f"Successfully sent WhatsApp text list message to {phone_number}.")
 
 
-async def send_whatsapp_list_message(phone_number: str):
-    """
-    Sends a list message to a phone number using the WhatsApp API.
-    """
-    if not all(
-        [
-            settings.WHATSAPP_SERVER_URL,
-            settings.WHATSAPP_SERVER_API_KEY,
-            settings.WHATSAPP_SERVER_INSTANCE_NAME,
-        ]
-    ):
-        logger.warning(
-            "WhatsApp server settings are not configured. Skipping message sending."
-        )
-        return
-
-    url = f"{settings.WHATSAPP_SERVER_URL}/message/sendList/{settings.WHATSAPP_SERVER_INSTANCE_NAME}"
-    headers = {"apikey": settings.WHATSAPP_SERVER_API_KEY}
-    payload = {
-        "number": phone_number,
-        "title": f"{SPECIAL_LIST_TITLE}",
-        "description": f"{SPECIAL_LIST_DESCRIPTION}",
-        "buttonText": "Haz click aquí",
-        "footerText": "",
-        "sections": [
-            {
-                "title": "",
-                "rows": [
-                    {"title": f"{SPECIAL_LIST_FIRST_OPTION}", "rowId": "rowId 001"},
-                    {
-                        "title": f"{SPECIAL_LIST_SECOND_OPTION}",
-                        "rowId": "rowId 002",
-                    },
-                    {
-                        "title": f"{SPECIAL_LIST_THIRD_OPTION}",
-                        "rowId": "rowId 003",
-                    },
-                    {
-                        "title": f"{SPECIAL_LIST_FOURTH_OPTION}",
-                        "rowId": "rowId 004",
-                    },
-                    {
-                        "title": f"{SPECIAL_LIST_FIFTH_OPTION}",
-                        "rowId": "rowId 005",
-                    },
-                    {
-                        "title": f"{SPECIAL_LIST_SIXTH_OPTION}",
-                        "rowId": "rowId 006",
-                    },
-                ],
-            }
-        ],
-    }
-
-    async with httpx.AsyncClient() as client:
-        try:
-            res = await client.post(url, headers=headers, json=payload)
-            res.raise_for_status()
-            logger.debug(
-                f"Successfully sent WhatsApp list message to {phone_number}."
-            )
-        except httpx.HTTPStatusError as e:
-            logger.error(
-                f"Failed to send WhatsApp list message to {phone_number}. Status: {e.response.status_code}, Response: {e.response.text}"
-            )
-        except httpx.ReadTimeout:
-            # This is an expected timeout from the WhatsApp API which doesn't affect functionality.
-            # We can safely ignore it.
-            pass
-        except Exception as e:
-            logger.error(
-                f"An unexpected error occurred while sending WhatsApp list message to {phone_number}: {e}",
-                exc_info=True,
-            )
-
 
 async def process_webhook_event(
     event: WebhookEvent, client: genai.Client, sheets_service: GoogleSheetsService
@@ -410,19 +335,16 @@ async def process_webhook_event(
             )
             if phone_number:
                 if response.toolCall == "send_special_list_message":
-                    if event.data.source == "web":
-                        await send_whatsapp_text_list_message(phone_number)
-                        # The interaction is updated inside _chat_router_logic, so we fetch it again
-                        interaction_after_logic = await db.get(models.Interaction, session_id)
-                        if interaction_after_logic:
-                            if interaction_after_logic.interaction_data is None:
-                                interaction_after_logic.interaction_data = {}
-                            interaction_after_logic.interaction_data["text_list_sent_to_web"] = True
-                            flag_modified(interaction_after_logic, "interaction_data")
-                            await db.commit()
-                            logger.debug(f"Set text_list_sent_to_web flag for session {session_id}")
-                    else:
-                        await send_whatsapp_list_message(phone_number)
+                    await send_whatsapp_text_list_message(phone_number)
+                    # The interaction is updated inside _chat_router_logic, so we fetch it again
+                    interaction_after_logic = await db.get(models.Interaction, session_id)
+                    if interaction_after_logic:
+                        if interaction_after_logic.interaction_data is None:
+                            interaction_after_logic.interaction_data = {}
+                        interaction_after_logic.interaction_data["text_list_sent_to_web"] = True
+                        flag_modified(interaction_after_logic, "interaction_data")
+                        await db.commit()
+                        logger.debug(f"Set text_list_sent_to_web flag for session {session_id}")
                 elif response.toolCall == "send_video_message":
                     interaction_after_logic = await db.get(
                         models.Interaction, session_id
