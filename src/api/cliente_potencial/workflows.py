@@ -532,11 +532,15 @@ async def _workflow_awaiting_nit(
         )
 
     if "buscar_nit" in tool_results:
-        # After finding the NIT, we need to ask for the next piece of information
-        # using the more specific prompt that defines the question order.
-        assistant_message_text = await get_final_text_response(
-            history_messages, client, CLIENTE_POTENCIAL_GATHER_INFO_SYSTEM_PROMPT
-        )
+        # After finding the NIT, we need to ask for the next piece of information.
+        # The `execute_tool_calls_and_get_response` function already did a second
+        # turn to get a text response after executing the tool. We should use that.
+        assistant_message_text = text_response
+        if not assistant_message_text:
+            # Fallback in case there was no text response for some reason.
+            assistant_message_text = await get_final_text_response(
+                history_messages, client, CLIENTE_POTENCIAL_GATHER_INFO_SYSTEM_PROMPT
+            )
 
         return (
             [
